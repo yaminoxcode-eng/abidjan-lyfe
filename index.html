@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Abidjan Life — Refonte urbaine V1.3</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
@@ -316,19 +317,20 @@ function init() {
   scene.background = new THREE.Color(0x87CEEB);
   scene.fog = new THREE.Fog(0x87CEEB, 2200, 10500);
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 22000);
-  renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 1.5, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+  const mobileLite = window.innerWidth < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  renderer = new THREE.WebGLRenderer({ antialias: !mobileLite && window.devicePixelRatio < 1.5, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !mobileLite;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobileLite ? 1 : 1.5));
   document.body.appendChild(renderer.domElement);
   clock = new THREE.Clock();
 
   scene.add(new THREE.AmbientLight(0xfff5e6, 0.72));
   const sun = new THREE.DirectionalLight(0xffe8c8, 0.75);
   sun.position.set(180, 260, 140);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.castShadow = !mobileLite;
+  sun.shadow.mapSize.set(mobileLite ? 512 : 1024, mobileLite ? 512 : 1024);
   sun.shadow.camera.left = -420; sun.shadow.camera.right = 420;
   sun.shadow.camera.top = 420; sun.shadow.camera.bottom = -420;
   scene.add(sun);
@@ -569,6 +571,7 @@ function generateCity() {
 // Fonctionne même si les serveurs cartographiques sont indisponibles.
 // ============================================================
 function createUrbanFlowerbeds(ox,oz){
+  const mobileLite=window.innerWidth<700||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const stemGeo=new THREE.CylinderGeometry(.035,.055,.58,5);
   const petalGeo=new THREE.SphereGeometry(.13,6,5);
   const centerGeo=new THREE.SphereGeometry(.075,6,5);
@@ -578,7 +581,7 @@ function createUrbanFlowerbeds(ox,oz){
   const dummy=new THREE.Object3D();let seed=20261112;
   function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   let beds=0,trees=0;
-  for(let attempt=0;attempt<170&&beds<44;attempt++){
+  for(let attempt=0;attempt<(mobileLite?105:170)&&beds<(mobileLite?28:44);attempt++){
     const x=ox+(rnd()-.5)*1880,z=oz+(rnd()-.5)*1880;
     if(isOnRoad(x,z,5)||overlapsExisting(x,z,7,6,2.5))continue;
     const patch=new THREE.Mesh(new THREE.CircleGeometry(2.45,12),new THREE.MeshLambertMaterial({color:0x4f9148}));
@@ -603,7 +606,7 @@ function createUrbanFlowerbeds(ox,oz){
   addInstances(stemGeo,stemMat,stems);
   petals.forEach((list,i)=>addInstances(petalGeo,petalMats[i],list));
   addInstances(centerGeo,new THREE.MeshLambertMaterial({color:0xf5c542}),centers);
-  for(let i=0;i<24&&trees<24;i++){
+  for(let i=0;i<(mobileLite?14:24)&&trees<(mobileLite?14:24);i++){
     const x=ox+(rnd()-.5)*1850,z=oz+(rnd()-.5)*1850;
     if(isOnRoad(x,z,4)||overlapsExisting(x,z,2.5,2.5,3))continue;
     createTree(x,z);trees++;
@@ -666,7 +669,8 @@ function buildPlayableUrbanCore(){
     // Chaque îlot contient plusieurs parcelles, pas un seul bloc isolé.
     for(let sideX=-1;sideX<=1;sideX+=2){for(let sideZ=-1;sideZ<=1;sideZ+=2){
       const count=2+(rnd()>.72?1:0);
-      for(let n=0;n<count&&made<175;n++){
+      const buildingBudget=(window.innerWidth<700||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))?130:175;
+      for(let n=0;n<count&&made<buildingBudget;n++){
         const w=15+rnd()*21,d=14+rnd()*20;
         const x=bx+sideX*(35+n*27)+(rnd()-.5)*9;
         const z=bz+sideZ*(35+n*27)+(rnd()-.5)*9;
@@ -733,7 +737,8 @@ function buildPlayableUrbanCore(){
   // Jardins de rue, massifs fleuris et arbres : placés dans les îlots, jamais sur la chaussée.
   createUrbanFlowerbeds(ox,oz);
   // Arrêts de transport, kiosques et mobilier urbain.
-  for(let i=0;i<22;i++){
+  const mobileLite=window.innerWidth<700||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  for(let i=0;i<(mobileLite?14:22);i++){
     const x=ox-760+(i%5)*370+((i%2)*28),z=oz-700+Math.floor(i/5)*350;
     if(!isOnRoad(x,z,2)&&!overlapsExisting(x,z,3,3,2)){
       const kiosk=new THREE.Group();makeBox(kiosk,3.2,2.6,2.4,new THREE.MeshLambertMaterial({color:0xd5a15b}),0,1.3,0);makeBox(kiosk,3.6,.22,2.8,new THREE.MeshLambertMaterial({color:0x9a3f32}),0,2.72,0);kiosk.position.set(x,terrainHeight(x,z),z);scene.add(kiosk);addObstacle(x,z,3.5,2.8,3);addPOI(x,z,'commerce','Kiosque de quartier');
@@ -1586,7 +1591,7 @@ function generateInterior(id, bw, bd, numFloors, wallColor, style) {
         {x:-roomW*.29,z:roomD*.30,w:roomW*.34,d:.045,c:0x9877a8},
         {x:roomW*.33,z:roomD*.29,w:roomW*.31,d:.045,c:0x62aeb2}
       ];
-      for(const panel of roomWallPanels){const strip=new THREE.Mesh(new THREE.BoxGeometry(panel.w,.22,panel.d),new THREE.MeshLambertMaterial({color:panel.c,roughness:1}));strip.position.set(panel.x,2.45,panel.z);floorGroup.add(strip);}
+      for(const panel of roomWallPanels){const strip=new THREE.Mesh(new THREE.BoxGeometry(panel.w,.22,panel.d),new THREE.MeshLambertMaterial({color:panel.c}));strip.position.set(panel.x,2.45,panel.z);floorGroup.add(strip);}
       // Bandeaux colorés sur les cloisons pour mieux lire les différentes pièces.
       const roomAccent=[0x6d9fbd,0xc69b62,0x9877a8,0x62aeb2];
       const accent1=new THREE.Mesh(new THREE.BoxGeometry(.10,1.0,roomD*.32),mat(roomAccent[0]));accent1.position.set(-roomW*.16,1.05,-roomD*.30);floorGroup.add(accent1);
