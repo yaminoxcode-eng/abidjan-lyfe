@@ -703,6 +703,7 @@ async function loadAbidjanOSM() {
   buildOSMNodePlaces(data.elements.filter(e => e.type === 'node' && e.tags), nodes);
   buildOSMWaterAndParks(waterWays, nodes);
   osmLoaded = true;
+  refreshGameMapRoads();
   if(mapOpen) drawBigMap();
   refreshGameMapRoads();
   // Place le joueur dans le secteur du Plateau ; le réseau réel reste à l'échelle métrique.
@@ -1064,7 +1065,7 @@ function updateTrafficVehiclePose(v){
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
   const segNow=d.route&&d.route[d.routeIndex];if(segNow){const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1,t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t;let stop=false;
-    for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<10&&light.state!=='vert'){stop=true;break;}}
+    for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<10&&(typeof light.phase==='number'?light.phase!==2:light.state!=='vert')){stop=true;break;}}
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
     if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
@@ -2663,7 +2664,7 @@ function initLeafletMap(){
 }
 function refreshGameMapRoads(){if(!leafletRoadLayer||typeof L==='undefined'||!osmRoadSegments.length)return;leafletRoadLayer.clearLayers();const canvasRenderer=L.canvas({padding:.4}),step=Math.max(1,Math.ceil(osmRoadSegments.length/6500));osmRoadSegments.forEach((r,i)=>{if(i%step)return;const a=worldToGeo(r.a.x,r.a.z),b=worldToGeo(r.b.x,r.b.z),major=['motorway','trunk','primary','secondary'].includes(r.type);L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{renderer:canvasRenderer,color:major?'#e7a947':'#fff',weight:major?4:2.1,opacity:1,lineCap:'round'}).addTo(leafletRoadLayer);});}
 function openBigMap(){
-  if(mapOpen||currentInterior)return;mapOpen=true;document.exitPointerLock&&document.exitPointerLock();
+  if(mapOpen||currentInterior)return;mapOpen=true;mapFollowPlayer=true;document.exitPointerLock&&document.exitPointerLock();
   document.getElementById('bigMap').style.display='block';
   const hasLeaflet=initLeafletMap();
   document.getElementById('leafletMap').style.display=hasLeaflet?'block':'none';
