@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Abidjan Life — Exploration urbaine 3D V0.9</title>
+<title>Abidjan Life — Ville ouverte & simulation de vie V1.0</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -122,7 +122,7 @@
   #socialFill{background:linear-gradient(90deg,#a36bd8,#f28bb8)}
   #moneyLabel{font-size:12px;font-weight:800;color:#83e5b0;white-space:nowrap}
   #lifeClock{position:absolute;top:12px;right:14px;z-index:11;padding:7px 10px;border-radius:8px;background:rgba(8,16,28,.8);font-weight:800;font-size:16px;color:#ffe2a0;text-shadow:1px 2px 3px #000;pointer-events:none}
-  @media(max-width:760px){#lifeHud{top:auto;bottom:62px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
+  @media(max-width:760px){#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
 </style>
 </head>
@@ -239,6 +239,7 @@ let nearNPC = null, nearPOI = null, nearDoor = null;
 let nearFurniture = null, heldFurniture = null, playerSitting = false, playerShowering = false, showerTimer = 0;
 let outdoorGround = null, laguneMesh = null, interiorAmbientLight = null;
 let messageTimer = 0;
+let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
 const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, lastSave:0 };
@@ -2303,7 +2304,10 @@ function updateLifeSimulation(delta){
 }
 function updateLifeLighting(){
   if(!scene||!scene.userData.sun||currentInterior)return;
-  const h=lifeState.hour, sun=scene.userData.sun;
+  const h=lifeState.hour;
+  if(h===lastLifeLightingHour)return;
+  lastLifeLightingHour=h;
+  const sun=scene.userData.sun;
   let intensity,bg;
   if(h>=6&&h<18){
     const t=Math.max(0,Math.min(1,(h-6)/12));
