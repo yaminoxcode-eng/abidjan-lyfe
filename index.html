@@ -759,9 +759,20 @@ function geoToWorld(lat, lon) {
 async function loadAbidjanOSM() {
   const b = ABIDJAN_BBOX;
   const query = `[out:json][timeout:45];(way[highway](${b.south},${b.west},${b.north},${b.east});way[building](${b.south},${b.west},${b.north},${b.east});way[natural=water](${b.south},${b.west},${b.north},${b.east});way[leisure=park](${b.south},${b.west},${b.north},${b.east});node[shop](${b.south},${b.west},${b.north},${b.east});node[amenity](${b.south},${b.west},${b.north},${b.east});node[office](${b.south},${b.west},${b.north},${b.east});node[tourism](${b.south},${b.west},${b.north},${b.east});node[public_transport](${b.south},${b.west},${b.north},${b.east});node[highway=bus_stop](${b.south},${b.west},${b.north},${b.east}););out body;>;out skel qt;`;
-  const endpoints = ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter'];
   let data = null;
-  for (const endpoint of endpoints) {
+  // Carte locale compacte : environ 3,6 Mo compressés, sans dépendance à Overpass.
+  try {
+    const localResponse = await fetch('https://d2ol7oe51mr4n9.cloudfront.net/user_3LVcgmLnYyIgIO5wyenMeyU1qx6/750912a1-208b-4fca-b488-81d5ed214b6e.gz', { cache: 'force-cache' });
+    if (!localResponse.ok) throw new Error('Carte locale HTTP ' + localResponse.status);
+    if (typeof DecompressionStream === 'undefined') throw new Error('Décompression gzip non prise en charge');
+    const decompressed = localResponse.body.pipeThrough(new DecompressionStream('gzip'));
+    data = await new Response(decompressed).json();
+    console.info('Carte locale Abidjan chargée :', data.elements.length, 'éléments');
+  } catch (localError) {
+    console.warn('Carte locale indisponible, tentative Overpass :', localError);
+  }
+  const endpoints = ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter'];
+  if (!data) for (const endpoint of endpoints) {
     let timeout = null;
     try {
       const controller = new AbortController();
