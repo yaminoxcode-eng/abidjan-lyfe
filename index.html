@@ -49,6 +49,7 @@
   #elevatorCancel{margin-top:14px;padding:9px 22px;border:1px solid #c6a66b;border-radius:8px;background:#202d35;color:#fff;cursor:pointer}
   #elevatorRide{position:absolute;inset:0;z-index:36;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,#0a1119,#25333d 48%,#0a1119);color:#ffe3a6;text-align:center}
   #elevatorRide strong{display:block;font-size:36px;margin:8px}#elevatorRide span{font-size:14px;color:#d5e0e5}#elevatorDoors{width:150px;height:180px;margin:0 auto 18px;border:5px solid #82949b;border-radius:8px;display:flex;overflow:hidden;background:#111}#elevatorDoors i{display:block;width:50%;height:100%;background:linear-gradient(90deg,#52636b,#a6b1b4,#58666b);transition:transform .3s}#elevatorDoors.open i:first-child{transform:translateX(-100%)}#elevatorDoors.open i:last-child{transform:translateX(100%)}
+  #cameraOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88)}#cameraPhone{width:min(420px,94vw);height:min(760px,92vh);border:8px solid #111;border-radius:34px;background:#101820;display:flex;flex-direction:column;padding:14px;gap:12px;color:#fff}#cameraPreview{flex:1;min-height:0;border-radius:22px;overflow:hidden;background:#000}#cameraPreview canvas{width:100%;height:100%;object-fit:cover;display:block}#cameraTop,#cameraControls{display:flex;align-items:center;justify-content:space-between;gap:8px}#cameraControls button,#cameraTop button{border:1px solid #ffffff55;background:#273b49;color:#fff;border-radius:20px;padding:10px 14px;font-weight:700}#cameraZoom{width:100%;accent-color:#e9c16f}#cameraStatus{font-size:12px;color:#e9c16f;text-align:center;min-height:16px}#galleryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}#galleryGrid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px}#galleryGrid a{display:block;text-align:center;color:#f3d08a;font-size:12px;padding:5px}#galleryGrid button{width:100%;font-size:12px}#mapFollow{position:absolute;z-index:500;right:16px;bottom:16px;border:0;border-radius:22px;padding:11px 16px;background:#263e53;color:white;font-weight:700}#leafletMap{background:#dce7d7}
   #errorBox {
     position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
     background: rgba(180,0,0,0.92); color: #fff; padding: 12px 20px; border-radius: 8px;
@@ -173,6 +174,7 @@
   <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
   <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
     <button class="phoneApp" data-app="localisation"><span>🗺️</span>Localisation</button>
+    <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
@@ -183,7 +185,7 @@
     <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
   </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
 </div>
-<div id="elevatorMenu" role="dialog" aria-modal="true"><div id="elevatorCard"><h2>Ascenseur</h2><p>Choisis l’étage où tu souhaites aller.</p><div id="elevatorFloors"></div><button id="elevatorCancel">Annuler</button></div></div><div id="elevatorRide"><div><div id="elevatorDoors"><i></i><i></i></div><span>Ascenseur en déplacement</span><strong id="elevatorCounter">RDC</strong><span id="elevatorDestination">Destination : —</span></div></div><div id="errorBox"></div>
+<div id="cameraOverlay"><div id="cameraPhone"><div id="cameraTop"><strong>📷 Caméra</strong><button id="cameraClose">Fermer</button></div><div id="cameraPreview"></div><label>Zoom <input id="cameraZoom" type="range" min="35" max="85" value="55"></label><div id="cameraStatus">Prêt à photographier</div><div id="cameraControls"><button id="takePhoto">● Photo</button><button id="recordVideo">◉ Vidéo</button></div></div></div><div id="elevatorMenu" role="dialog" aria-modal="true"><div id="elevatorCard"><h2>Ascenseur</h2><p>Choisis l’étage où tu souhaites aller.</p><div id="elevatorFloors"></div><button id="elevatorCancel">Annuler</button></div></div><div id="elevatorRide"><div><div id="elevatorDoors"><i></i><i></i></div><span>Ascenseur en déplacement</span><strong id="elevatorCounter">RDC</strong><span id="elevatorDestination">Destination : —</span></div></div><div id="errorBox"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -220,7 +222,8 @@ let osmRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulation
 const OBSTACLE_CELL = 96;
 const obstacleGrid = new Map();
 let jumpQueued = false;
-let leafletMap = null, leafletPlayerMarker = null;
+let leafletMap = null, leafletPlayerMarker = null, leafletRoadLayer = null, mapFollowPlayer = true;
+let cameraMode=false,cameraOriginalFov=55,mediaRecorder=null,recordedChunks=[],gameGallery=[];
 let lastExteriorPosition = null;
 let initialHomeEntered = false;
 let residentialDoorCount = 0;
@@ -298,7 +301,7 @@ function init() {
   scene.background = new THREE.Color(0x87CEEB);
   scene.fog = new THREE.Fog(0x87CEEB, 2200, 10500);
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 22000);
-  renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 1.5, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 1.5, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -329,7 +332,7 @@ function init() {
   window.addEventListener('keyup', function(e) { keys[e.key.toLowerCase()] = false; });
   document.getElementById('closeMapBtn').addEventListener('click', closeBigMap);
   document.getElementById('phoneClose').addEventListener('click', closePhone);
-  document.getElementById('elevatorCancel').addEventListener('click',closeElevatorMenu);
+  document.getElementById('elevatorCancel').addEventListener('click',closeElevatorMenu);document.getElementById('cameraClose').addEventListener('click',closeGameCamera);document.getElementById('takePhoto').addEventListener('click',takeGamePhoto);document.getElementById('recordVideo').addEventListener('click',toggleGameVideo);document.getElementById('cameraZoom').addEventListener('input',e=>{camera.fov=Number(e.target.value);camera.updateProjectionMatrix();});
   document.querySelectorAll('.phoneApp').forEach(btn=>btn.addEventListener('click',()=>openPhoneApp(btn.dataset.app)));
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUpCamera);
@@ -2559,7 +2562,9 @@ function openPhoneApp(app){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
   if(!apps||!content)return;
   if(app==='localisation'){closePhone();openBigMap();return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages'};
+  if(app==='camera'){closePhone();openGameCamera();return;}
+  if(app==='gallery'){renderGameGallery();}
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Les habitants que tu rencontres seront ajoutés ici.',
     messages:'Aucun nouveau message pour le moment.',
@@ -2568,12 +2573,21 @@ function openPhoneApp(app){
     travail:'Trouve un lieu de travail dans la ville pour gagner de l’argent.',
     boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
-    parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.'
+    parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.', gallery:'Tes photos prises dans Abidjan Life.'
   };
   apps.style.display='none';content.style.display='block';
-  content.innerHTML='<button id="phoneBack">← Applications</button><h3>'+labels[app]+'</h3><p>'+body[app]+'</p>';
-  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';apps.style.display='grid';};
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>'+labels[app]+'</h3><p>'+body[app]+'</p>'+(app==='gallery'?'<div id="galleryGrid"></div><button id="clearGallery">Vider la galerie</button>':'');if(app==='gallery')drawGalleryItems();
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';apps.style.display='grid';};const clear=document.getElementById('clearGallery');if(clear)clear.onclick=()=>{if(confirm('Supprimer toutes les photos ?')){gameGallery=[];saveGameGallery();drawGalleryItems();}};
 }
+function openGameCamera(){if(!renderer||!camera)return;cameraMode=true;cameraOriginalFov=camera.fov;document.exitPointerLock&&document.exitPointerLock();document.getElementById('cameraOverlay').style.display='flex';const preview=document.getElementById('cameraPreview');preview.innerHTML='';const view=document.createElement('canvas');view.width=640;view.height=860;view.style.width='100%';view.style.height='100%';view.style.objectFit='cover';preview.appendChild(view);const ctx=view.getContext('2d');const draw=()=>{if(!cameraMode)return;try{ctx.drawImage(renderer.domElement,0,0,view.width,view.height);}catch(e){}requestAnimationFrame(draw);};draw();}
+function closeGameCamera(){cameraMode=false;if(mediaRecorder&&mediaRecorder.state==='recording')mediaRecorder.stop();document.getElementById('cameraOverlay').style.display='none';camera.fov=cameraOriginalFov;camera.updateProjectionMatrix();if(renderer&&!dialogOpen&&!panelOpen&&!mapOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();}
+function loadGameGallery(){try{gameGallery=JSON.parse(localStorage.getItem('abj-life-gallery-v1')||'[]');if(!Array.isArray(gameGallery))gameGallery=[];}catch(e){gameGallery=[];}}
+function saveGameGallery(){try{localStorage.setItem('abj-life-gallery-v1',JSON.stringify(gameGallery.slice(-8)));}catch(e){showMessage('Galerie presque pleine : télécharge tes photos.');}}
+function takeGamePhoto(){if(!renderer)return;const src=renderer.domElement,c=document.createElement('canvas'),scale=Math.min(1,1280/src.width);c.width=Math.round(src.width*scale);c.height=Math.round(src.height*scale);c.getContext('2d').drawImage(src,0,0,c.width,c.height);const data=c.toDataURL('image/jpeg',.78);gameGallery.push({id:Date.now(),data,name:'Abidjan-Life-'+Date.now()+'.jpg'});gameGallery=gameGallery.slice(-8);saveGameGallery();document.getElementById('cameraStatus').textContent='Photo enregistrée dans la galerie';showMessage('📸 Photo prise ! Retrouve-la dans la Galerie.');}
+function toggleGameVideo(){const status=document.getElementById('cameraStatus'),btn=document.getElementById('recordVideo');if(mediaRecorder&&mediaRecorder.state==='recording'){mediaRecorder.stop();btn.textContent='◉ Vidéo';return;}if(!renderer.domElement.captureStream||typeof MediaRecorder==='undefined'){status.textContent='Vidéo non prise en charge par ce navigateur.';return;}try{recordedChunks=[];const stream=renderer.domElement.captureStream(30);mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size)recordedChunks.push(e.data);};mediaRecorder.onstop=()=>{const blob=new Blob(recordedChunks,{type:recordedChunks[0]?.type||'video/webm'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Abidjan-Life-video-'+Date.now()+'.webm';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);status.textContent='Vidéo téléchargée sur ton appareil.';btn.textContent='◉ Vidéo';};mediaRecorder.start();btn.textContent='■ Arrêter';status.textContent='Enregistrement vidéo en cours…';}catch(e){status.textContent='Impossible de démarrer la vidéo.';}}
+function renderGameGallery(){loadGameGallery();drawGalleryItems();}
+function drawGalleryItems(){const grid=document.getElementById('galleryGrid');if(!grid)return;loadGameGallery();grid.innerHTML='';if(!gameGallery.length){grid.innerHTML='<p>Aucune photo pour le moment. Ouvre Caméra pour en prendre.</p>';return;}gameGallery.slice().reverse().forEach(item=>{const card=document.createElement('div'),img=document.createElement('img'),a=document.createElement('a'),del=document.createElement('button');img.src=item.data;img.alt='Photo du jeu';a.href=item.data;a.download=item.name;a.textContent='Télécharger';del.textContent='Supprimer';del.onclick=()=>{gameGallery=gameGallery.filter(x=>x.id!==item.id);saveGameGallery();drawGalleryItems();};card.append(img,a,del);grid.appendChild(card);});}
+
 function updateTrafficLights(delta){
   const durations=[7,2,7];
   trafficLights.forEach(light=>{
