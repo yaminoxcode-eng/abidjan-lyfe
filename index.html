@@ -544,7 +544,7 @@ function resolveVehicleCollisions(pos, radius) {
 function generateCity() {
   outdoorGround = createAbidjanTerrain();
   loadAbidjanOSM().then(() => {
-    document.getElementById('mapStatus').textContent = osmRoadSegments.length.toLocaleString('fr-FR') + ' segments de routes et rues · ' + allBuildings.length.toLocaleString('fr-FR') + ' bâtiments · ' + poi.length.toLocaleString('fr-FR') + ' commerces et lieux · ' + doors.length + ' maisons accessibles';
+    document.getElementById('mapStatus').textContent = osmRoadSegments.length.toLocaleString('fr-FR') + ' segments de routes et rues · ' + allBuildings.length.toLocaleString('fr-FR') + ' bâtiments · ' + poi.length.toLocaleString('fr-FR') + ' commerces et lieux · ' + doors.length + ' maisons accessibles · Données © OpenStreetMap contributors';
     // Le réseau OSM apporte la géographie réelle ; ce noyau urbain garantit
     // une ville visible et dense autour du point de départ même si OSM est incomplet.
     buildPlayableUrbanCore();
