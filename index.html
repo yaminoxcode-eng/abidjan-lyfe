@@ -274,6 +274,7 @@ const movementState = { yVelocity: 0, onGround: true };
 // ÉTAT GLOBAL
 // ============================================================
 let scene, camera, renderer, clock;
+let mobilePerformanceMode=false;
 let player = null;
 let npcs = [], vehicles = [], trafficLights = [], obstacles = [], doors = [], poi = [], particles = [], parks = [], allBuildings = [];
 let interiors = {};
@@ -318,6 +319,7 @@ function init() {
   scene.fog = new THREE.Fog(0x87CEEB, 2200, 10500);
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 22000);
   const mobileLite = window.innerWidth < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  mobilePerformanceMode=mobileLite;
   renderer = new THREE.WebGLRenderer({ antialias: !mobileLite && window.devicePixelRatio < 1.5, powerPreference: 'high-performance', preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = !mobileLite;
@@ -549,8 +551,8 @@ function generateCity() {
     // une ville visible et dense autour du point de départ même si OSM est incomplet.
     buildPlayableUrbanCore();
     document.getElementById('mapStatus').textContent += ' · © OpenStreetMap contributors';
-    if (!npcPopulationCreated) { createNPCs(110); npcPopulationCreated = true; }
-    createAbidjanTraffic(76);
+    if (!npcPopulationCreated) { createNPCs(mobilePerformanceMode?42:90); npcPopulationCreated = true; }
+    createAbidjanTraffic(mobilePerformanceMode?22:64);
     buildUrbanTrafficSignals();
     worldReady = true;
     startPlayerAtHome();
@@ -647,7 +649,7 @@ function buildPlayableUrbanCore(){
       strip({x:a.x+nx*off*side,z:a.z+nz*off*side},{x:b.x+nx*off*side,z:b.z+nz*off*side},3.1,walkV,walkI,.075);
     }
   }
-  function addSurface(v,idx,mat){if(!v.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setIndex(idx);g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=true;scene.add(m);}
+  function addSurface(v,idx,mat){if(!v.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setIndex(idx);g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=!mobilePerformanceMode;scene.add(m);}
   addSurface(roadV,roadI,roadMat);addSurface(walkV,walkI,sidewalkMat);
   // Lignes centrales et passages piétons aux carrefours.
   for(const r of roads){
@@ -881,7 +883,7 @@ function buildOSMRoads(ways, nodes) {
     }
   });
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
-  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a}));mesh.receiveShadow=true;scene.add(mesh);
+  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a}));mesh.receiveShadow=!mobilePerformanceMode;scene.add(mesh);
   rebuildPedestrianGrid();
   decorateOSMStreets();
   const seen=new Set();
@@ -896,7 +898,7 @@ function decorateOSMStreets(){
   function quad(arr,idx,a,b,c,d,y){const k=arr.length/3;[a,b,c,d].forEach(q=>arr.push(q.x,terrainHeight(q.x,q.z)+y,q.z));idx.push(k,k+1,k+2,k,k+2,k+3);}
   for(let roadIndex=0;roadIndex<osmRoadSegments.length;roadIndex++){
     const r=osmRoadSegments[roadIndex];
-    const detailed=['motorway','trunk','primary','secondary','tertiary'].includes(r.type)||(r.type==='residential'&&roadIndex%4===0);
+    const detailed=['motorway','trunk','primary','secondary','tertiary'].includes(r.type)||(r.type==='residential'&&roadIndex%(mobilePerformanceMode?8:4)===0);
     if(!detailed)continue;
     const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,len=Math.hypot(dx,dz);if(len<7)continue;
     const nx=-dz/len,nz=dx/len;
@@ -914,21 +916,21 @@ function decorateOSMStreets(){
       for(let j=0;j<dashCount;j++){const t=(j+.5)/dashCount,half=Math.min(3.2,len/(dashCount*3));const cx=r.a.x+dx*t,cz=r.a.z+dz*t;const a={x:cx+nx*.09,z:cz+nz*.09},b={x:cx-nx*.09,z:cz-nz*.09},c={x:cx-nx*.09+dx/len*half,z:cz-nz*.09+dz/len*half},d={x:cx+nx*.09+dx/len*half,z:cz+nz*.09+dz/len*half};quad(lineV,lineI,a,b,c,d,.055);}
     }
     // Lampadaires à intervalles raisonnables le long des avenues et rues habitées.
-    if(lampCount<230&&['primary','secondary','tertiary','residential'].includes(r.type)){
+    if(lampCount<(mobilePerformanceMode?80:230)&&['primary','secondary','tertiary','residential'].includes(r.type)){
       const spacing=(r.type==='primary'||r.type==='secondary')?105:145;
       const samples=Math.floor(len/spacing);
-      for(let j=1;j<=samples&&lampCount<230;j++){const t=j/(samples+1),side=(j%2?1:-1),x=r.a.x+dx*t+nx*(r.width/2+1.9)*side,z=r.a.z+dz*t+nz*(r.width/2+1.9)*side,key=Math.round(x/24)+':'+Math.round(z/24);if(lampSpots.has(key)||isOnRoad(x,z,1)||overlapsExisting(x,z,.5,.5,1))continue;lampSpots.add(key);createStreetLamp(x,z);lampCount++;}
+      for(let j=1;j<=samples&&lampCount<(mobilePerformanceMode?80:230);j++){const t=j/(samples+1),side=(j%2?1:-1),x=r.a.x+dx*t+nx*(r.width/2+1.9)*side,z=r.a.z+dz*t+nz*(r.width/2+1.9)*side,key=Math.round(x/24)+':'+Math.round(z/24);if(lampSpots.has(key)||isOnRoad(x,z,1)||overlapsExisting(x,z,.5,.5,1))continue;lampSpots.add(key);createStreetLamp(x,z);lampCount++;}
     }
   }
   // Carrefours : repère les nœuds où plusieurs rues se rejoignent et ajoute des passages piétons.
   const junctions=new Map();
   for(let roadIndex=0;roadIndex<osmRoadSegments.length;roadIndex++){
-    if(roadIndex%3!==0)continue;const r=osmRoadSegments[roadIndex];
+    if(roadIndex%(mobilePerformanceMode?6:3)!==0)continue;const r=osmRoadSegments[roadIndex];
     if(!['motorway','trunk','primary','secondary','tertiary','residential'].includes(r.type))continue;
     for(const p of [r.a,r.b]){const k=Math.round(p.x/3)+':'+Math.round(p.z/3);if(!junctions.has(k))junctions.set(k,{x:p.x,z:p.z,degree:0,roads:[]});const j=junctions.get(k);j.degree++;j.roads.push(r);}}
   let crossingCount=0;
   for(const j of junctions.values()){
-    if(j.degree<3||crossingCount>=55)continue;
+    if(j.degree<3||crossingCount>=(mobilePerformanceMode?24:55))continue;
     const main=j.roads.find(r=>['primary','secondary','tertiary'].includes(r.type));if(!main)continue;
     const dx=main.b.x-main.a.x,dz=main.b.z-main.a.z,len=Math.hypot(dx,dz)||1,nx=-dz/len,nz=dx/len;
     const v1={x:j.x+nx*2.3,z:j.z+nz*2.3},v2={x:j.x-nx*2.3,z:j.z-nz*2.3};
@@ -973,9 +975,9 @@ function buildOSMBuildings(ways,nodes) {
   const positions=[], normals=[], colors=[], indices=[];
   const facadePositions=[], facadeColors=[], facadeIndices=[];
   let count=0, facadeWindowCount=0;
-  const MAX_FACADE_WINDOWS=24000;
+  const MAX_FACADE_WINDOWS=mobilePerformanceMode?9000:24000;
   ways.forEach(w=>{
-    if(count>=2600 || w.nodes.length<4)return;
+    if(count>=(mobilePerformanceMode?1700:2600) || w.nodes.length<4)return;
     const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean); if(pts.length<4)return;
     const area=Math.abs(pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p.x*q.z-q.x*p.z;},0))/2;
     if(area<18||area>12000)return;
