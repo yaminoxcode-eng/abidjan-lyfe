@@ -2049,7 +2049,7 @@ function exitBuilding() {
   scene.background=new THREE.Color(0x87CEEB);scene.fog=new THREE.Fog(0x87CEEB,2200,10500);
   if(interiorAmbientLight)interiorAmbientLight.intensity=0;
   document.getElementById('interiorHint').style.display='none';document.getElementById('etage').textContent='';
-  document.getElementById('floorHint').style.display='none';currentInterior=null;currentFloor=0;lastExteriorPosition=null;
+  document.getElementById('floorHint').style.display='none';currentInterior=null;currentFloor=0;lastExteriorPosition=null;lastLifeLightingHour=-1;updateLifeLighting();
   document.exitPointerLock&&document.exitPointerLock();
   showMessage('Tu es revenu dans le quartier, devant ta maison.');
 }
