@@ -169,11 +169,11 @@
 <div id="info">ZQSD · Shift courir · Espace sauter · Souris caméra · Molette zoom · Clic droit glisser · E maison / parler / commerces · K sauvegarder · M téléphone · Localisation dans le téléphone</div>
 <div id="interiorHint"></div><div id="etage"></div><div id="floorHint"></div><div id="message" role="status"></div>
 
-<div id="bigMap"><div id="leafletMap" aria-label="Carte géographique interactive d’Abidjan"></div><canvas id="bigMapCanvas" width="1100" height="760"></canvas><button class="closeMap" id="closeMapBtn" aria-label="Fermer la carte">✕</button><div class="legend"><div class="leg">Routes réelles OpenStreetMap</div><div class="leg"><div class="dot" style="background:#e7473f"></div>Ta position</div></div></div>
+<div id="bigMap"><div id="leafletMap" aria-label="Carte géographique interactive d’Abidjan"></div><canvas id="bigMapCanvas" width="1100" height="760"></canvas><button class="closeMap" id="closeMapBtn" aria-label="Fermer la carte">✕</button><div class="legend"><div class="leg">Routes du monde du jeu</div><div class="leg"><div class="dot" style="background:#e7473f"></div>Ta position</div></div></div>
 <div id="phone" aria-label="Téléphone du personnage">
   <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
   <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
-    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Localisation</button>
+    <button class="phoneApp" data-app="localisation"><span>🗺️</span >Plans</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button>
@@ -1065,7 +1065,7 @@ function updateTrafficVehiclePose(v){
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
   const segNow=d.route&&d.route[d.routeIndex];if(segNow){const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1,t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t;let stop=false;
-    for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<10&&(typeof light.phase==='number'?light.phase!==2:light.state!=='vert')){stop=true;break;}}
+    for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<18&&light.phase!==2){stop=true;break;}}
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
     if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
@@ -2617,22 +2617,19 @@ function renderGameGallery(){loadGameGallery();drawGalleryItems();}
 function drawGalleryItems(){const grid=document.getElementById('galleryGrid');if(!grid)return;loadGameGallery();grid.innerHTML='';if(!gameGallery.length){grid.innerHTML='<p>Aucune photo pour le moment. Ouvre Caméra pour en prendre.</p>';return;}gameGallery.slice().reverse().forEach(item=>{const card=document.createElement('div'),img=document.createElement('img'),a=document.createElement('a'),del=document.createElement('button');img.src=item.data;img.alt='Photo du jeu';a.href=item.data;a.download=item.name;a.textContent='Télécharger';del.textContent='Supprimer';del.onclick=()=>{gameGallery=gameGallery.filter(x=>x.id!==item.id);saveGameGallery();drawGalleryItems();};card.append(img,a,del);grid.appendChild(card);});}
 
 function updateTrafficLights(delta){
-  const durations=[7,2,7];
-  trafficLights.forEach(light=>{
-    light.timer+=delta;
-    if(light.timer>durations[light.phase]){light.timer=0;light.phase=(light.phase+1)%3;}
-    light.bulbs.forEach((bulb,i)=>bulb.material.color.setHex(i===light.phase?[0xe74c3c,0xf1c40f,0x2ecc71][i]:0x282828));
-  });
+  const durations=[7,2,7],groups=new Map();
+  trafficLights.forEach(light=>{const key=light.group||('single-'+trafficLights.indexOf(light));if(!groups.has(key))groups.set(key,[]);groups.get(key).push(light);});
+  groups.forEach(lights=>{const master=lights[0];master.timer+=delta;if(master.timer>durations[master.phase]){master.timer=0;master.phase=(master.phase+1)%3;}lights.forEach(light=>{light.phase=master.phase;light.timer=master.timer;light.bulbs.forEach((bulb,i)=>bulb.material.color.setHex(i===light.phase?[0xe74c3c,0xf1c40f,0x2ecc71][i]:0x282828));});});
 }
 function buildUrbanTrafficSignals(){
   if(scene.userData.urbanSignalsBuilt)return;scene.userData.urbanSignalsBuilt=true;
   const origin=geoToWorld(5.323,-4.02),metal=new THREE.MeshLambertMaterial({color:0x30383c}),black=new THREE.MeshLambertMaterial({color:0x171b1d});
   for(const [ox,oz] of [[-255,-245],[0,-245],[255,-245],[-255,0],[0,0],[255,0],[-255,245],[0,245],[255,245]]){
     for(const side of [-1,1]){
-      const x=origin.x+ox+side*11,z=origin.z+oz+side*10,y=terrainHeight(x,z);
+      const x=origin.x+ox+side*11,z=origin.z+oz+side*10,y=terrainHeight(x,z),group=ox+','+oz;
       const pole=new THREE.Mesh(new THREE.CylinderGeometry(.09,.13,4.8,7),metal);pole.position.set(x,y+2.4,z);scene.add(pole);
       const head=new THREE.Mesh(new THREE.BoxGeometry(.48,1.22,.38),black);head.position.set(x,y+4.75,z);scene.add(head);
-      const bulbs=[];for(let i=0;i<3;i++){const bulb=new THREE.Mesh(new THREE.SphereGeometry(.13,8,7),new THREE.MeshBasicMaterial({color:0x282828}));bulb.position.set(x,y+5.16-i*.39,z+.205);scene.add(bulb);bulbs.push(bulb);}trafficLights.push({bulbs,timer:Math.random()*16,phase:0});
+      const bulbs=[];for(let i=0;i<3;i++){const bulb=new THREE.Mesh(new THREE.SphereGeometry(.13,8,7),new THREE.MeshBasicMaterial({color:0x282828}));bulb.position.set(x,y+5.16-i*.39,z+.205);scene.add(bulb);bulbs.push(bulb);}trafficLights.push({bulbs,timer:0,phase:0,x,z,group});
     }
     // Passage piéton : bandes blanches au bord du carrefour.
     for(let i=-4;i<=4;i++){
@@ -2680,7 +2677,7 @@ function drawBigMap(){
   if(osmLoaded){ctx.lineCap='round';ctx.lineJoin='round';osmRoadSegments.forEach(r=>{ctx.strokeStyle=(r.type==='motorway'||r.type==='trunk')?'#d6a64c':(r.type==='primary'||r.type==='secondary')?'#fffdf6':'#fff';ctx.lineWidth=Math.max(.65,r.width*scale);ctx.beginPath();ctx.moveTo(toX(r.a.x),toY(r.a.z));ctx.lineTo(toX(r.b.x),toY(r.b.z));ctx.stroke();});}
   else{ctx.fillStyle='#253d36';ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.fillText('La carte interactive nécessite une connexion aux cartes OpenStreetMap.',W/2,H/2);}
   if(player){ctx.fillStyle='#e7473f';ctx.beginPath();ctx.arc(toX(player.position.x),toY(player.position.z),8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}
-  ctx.fillStyle='#17252b';ctx.font='bold 18px Arial';ctx.textAlign='left';ctx.fillText('ABIDJAN · PLAN GÉOGRAPHIQUE',18,30);
+  ctx.fillStyle='#17252b';ctx.font='bold 18px Arial';ctx.textAlign='left';ctx.fillText('ABIDJAN LIFE · PLAN DU JEU',18,30);
 }
 
 function drawMinimap() {
