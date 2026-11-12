@@ -702,6 +702,7 @@ async function loadAbidjanOSM() {
   buildOSMWaterAndParks(waterWays, nodes);
   osmLoaded = true;
   if(mapOpen) drawBigMap();
+  refreshGameMapRoads();
   // Place le joueur dans le secteur du Plateau ; le réseau réel reste à l'échelle métrique.
   if (player) {
     const target=geoToWorld(5.323,-4.02);
@@ -1060,6 +1061,11 @@ function updateTrafficVehiclePose(v){
 }
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
+  const segNow=d.route&&d.route[d.routeIndex];if(segNow){const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1,t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t;let stop=false;
+    for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<10&&light.state!=='vert'){stop=true;break;}}
+    if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
+    if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
+  }
   while(remaining>0&&guard++<12){
     let seg=d.route[d.routeIndex];if(!seg)return;
     const len=Math.hypot(seg.b.x-seg.a.x,seg.b.z-seg.a.z)||1,available=len-d.progress;
@@ -2385,6 +2391,7 @@ function updatePlayer(delta) {
 function updateNPCs(delta) {
   npcs.forEach(npc=>{
     const d=npc.userData; if(d.dead||!npc.visible)return;
+    if(vehicles.some(v=>!v.userData.wreck&&Math.hypot(v.position.x-npc.position.x,v.position.z-npc.position.z)<4.1)){d.pauseTimer=Math.max(d.pauseTimer||0,.3);animateCharacter(npc,delta,false);return;}
     if(d.pauseTimer>0){d.pauseTimer-=delta;animateCharacter(npc,delta,false);return;}
     d.changeTimer-=delta;
     if(d.changeTimer<=0){
@@ -2622,23 +2629,26 @@ function initLeafletMap(){
   if(typeof L==='undefined')return false;
   const container=document.getElementById('leafletMap');if(!container)return false;
   if(!leafletMap){
-    leafletMap=L.map(container,{zoomControl:true,preferCanvas:true}).setView([5.32,-4.02],12);
-    const streets=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'});
-    const relief=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap · © OpenStreetMap contributors'});
-    streets.addTo(leafletMap);L.control.layers({'Plan des rues':streets,'Relief topographique':relief}).addTo(leafletMap);L.control.scale({imperial:false}).addTo(leafletMap);
-    leafletPlayerMarker=L.circleMarker([5.323,-4.02],{radius:8,color:'#fff',weight:2,fillColor:'#e7473f',fillOpacity:1}).addTo(leafletMap).bindTooltip('Ta position');
+    leafletMap=L.map(container,{zoomControl:true,preferCanvas:true,zoomSnap:.5}).setView([5.32,-4.02],13);
+    leafletMap.getContainer().style.background='#dce7d7';leafletRoadLayer=L.layerGroup().addTo(leafletMap);
+    leafletPlayerMarker=L.circleMarker([5.323,-4.02],{radius:8,color:'#fff',weight:3,fillColor:'#e7473f',fillOpacity:1}).addTo(leafletMap).bindTooltip('Ta position');
+    leafletHeadingLine=L.polyline([], {color:'#e7473f',weight:4,opacity:.85}).addTo(leafletMap);
+    const follow=document.createElement('button');follow.id='mapFollow';follow.textContent='◎ Recentrer sur moi';follow.onclick=()=>{mapFollowPlayer=true;if(player){const p=worldToGeo(player.position.x,player.position.z);leafletMap.setView([p.lat,p.lon],Math.max(leafletMap.getZoom(),15));}};container.appendChild(follow);leafletMap.on('dragstart',()=>{mapFollowPlayer=false;});
   }
+  refreshGameMapRoads();
   const g=player?worldToGeo(player.position.x,player.position.z):{lat:5.32,lon:-4.02};
   leafletPlayerMarker.setLatLng([g.lat,g.lon]);leafletMap.setView([g.lat,g.lon],Math.max(leafletMap.getZoom(),12));
   setTimeout(()=>leafletMap.invalidateSize(),80);
   return true;
 }
+function refreshGameMapRoads(){if(!leafletRoadLayer||typeof L==='undefined'||!osmRoadSegments.length)return;leafletRoadLayer.clearLayers();const canvasRenderer=L.canvas({padding:.4}),step=Math.max(1,Math.ceil(osmRoadSegments.length/6500));osmRoadSegments.forEach((r,i)=>{if(i%step)return;const a=worldToGeo(r.a.x,r.a.z),b=worldToGeo(r.b.x,r.b.z),major=['motorway','trunk','primary','secondary'].includes(r.type);L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{renderer:canvasRenderer,color:major?'#e7a947':'#fff',weight:major?4:2.1,opacity:1,lineCap:'round'}).addTo(leafletRoadLayer);});}
 function openBigMap(){
   if(mapOpen||currentInterior)return;mapOpen=true;document.exitPointerLock&&document.exitPointerLock();
   document.getElementById('bigMap').style.display='block';
   const hasLeaflet=initLeafletMap();
   document.getElementById('leafletMap').style.display=hasLeaflet?'block':'none';
   document.getElementById('bigMapCanvas').style.display=hasLeaflet?'none':'block';
+  const follow=document.getElementById('mapFollow');if(follow)follow.style.display=hasLeaflet?'block':'none';
   if(!hasLeaflet)drawBigMap();
 }
 function closeBigMap(){mapOpen=false;document.getElementById('bigMap').style.display='none';if(renderer&&!dialogOpen&&!panelOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();}
@@ -2679,7 +2689,7 @@ function animate() {
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
     districtCheckTimer+=delta;if(districtCheckTimer>.45){districtCheckTimer=0;updateDistrictHUD();}
     const phoneClock=document.getElementById('phoneClock');if(phoneClock)phoneClock.textContent=String(lifeState.hour).padStart(2,'0')+':'+String(lifeState.minute).padStart(2,'0');
-    if(mapOpen && leafletMap && player){const g=worldToGeo(player.position.x,player.position.z);leafletPlayerMarker.setLatLng([g.lat,g.lon]);}
+    if(mapOpen && leafletMap && player){const g=worldToGeo(player.position.x,player.position.z),hx=Math.sin(player.rotation.y)*18,hz=Math.cos(player.rotation.y)*18,head=worldToGeo(player.position.x+hx,player.position.z+hz);leafletPlayerMarker.setLatLng([g.lat,g.lon]);if(leafletHeadingLine)leafletHeadingLine.setLatLng([[g.lat,g.lon],[head.lat,head.lon]]);if(mapFollowPlayer)leafletMap.panTo([g.lat,g.lon],{animate:false});}
     renderer.render(scene, camera);
   } catch (err) {
     console.error(err);
