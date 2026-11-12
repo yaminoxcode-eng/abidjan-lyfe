@@ -275,6 +275,7 @@ const movementState = { yVelocity: 0, onGround: true };
 // ============================================================
 let scene, camera, renderer, clock;
 let mobilePerformanceMode=false;
+let npcUpdateAccumulator=0,vehicleUpdateAccumulator=0;
 let player = null;
 let npcs = [], vehicles = [], trafficLights = [], obstacles = [], doors = [], poi = [], particles = [], parks = [], allBuildings = [];
 let interiors = {};
@@ -2947,8 +2948,10 @@ function animate() {
     updateLifeSimulation(delta);
     updateElevatorTravel(delta);
     updatePlayer(delta);
-    updateNPCs(delta);
-    updateVehicles(delta);
+    npcUpdateAccumulator+=delta;
+    if(npcUpdateAccumulator>=.05){const npcDelta=Math.min(npcUpdateAccumulator,.12);npcUpdateAccumulator=0;updateNPCs(npcDelta);}
+    vehicleUpdateAccumulator+=delta;
+    if(vehicleUpdateAccumulator>=1/30){const vehicleDelta=Math.min(vehicleUpdateAccumulator,.12);vehicleUpdateAccumulator=0;updateVehicles(vehicleDelta);}
     updateTrafficLights(delta);
     updateParticles(delta);
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
