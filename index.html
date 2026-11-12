@@ -173,7 +173,7 @@
 <div id="phone" aria-label="Téléphone du personnage">
   <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
   <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
-    <button class="phoneApp" data-app="localisation"><span>🗺️</span >Plans</button>
+    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button>
@@ -1067,6 +1067,7 @@ function advanceTrafficVehicle(v,delta){
   const segNow=d.route&&d.route[d.routeIndex];if(segNow){const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1,t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t;let stop=false;
     for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<18&&light.phase!==2){stop=true;break;}}
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
+    if(!stop)for(const npc of npcs){if(npc.userData.dead||!npc.visible)continue;const gap=Math.hypot(npc.position.x-px,npc.position.z-pz),ahead=(npc.position.x-px)*dx+(npc.position.z-pz)*dz;if(gap<3.8&&ahead>0){stop=true;break;}}
     if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
   while(remaining>0&&guard++<12){
