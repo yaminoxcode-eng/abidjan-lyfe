@@ -212,11 +212,26 @@ function terrainHeight(x,z){
   return 0.85*Math.sin(x/2100)*Math.cos(z/2600) + 0.62*Math.sin((x+z)/1450) + 0.28*Math.cos((x-z)/720);
 }
 function createAbidjanTerrain(){
-  const segments=180, half=CITY_SIZE/2, positions=[],indices=[];
+  const segments=210, half=CITY_SIZE/2, positions=[],indices=[];
   for(let iz=0;iz<=segments;iz++){const z=-half+CITY_SIZE*iz/segments;for(let ix=0;ix<=segments;ix++){const x=-half+CITY_SIZE*ix/segments;positions.push(x,terrainHeight(x,z)-.08,z);}}
   for(let iz=0;iz<segments;iz++)for(let ix=0;ix<segments;ix++){const a=iz*(segments+1)+ix,b=a+1,c=a+segments+1,d=c+1;indices.push(a,c,b,b,c,d);}
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setIndex(indices);geo.computeVertexNormals();
-  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0x929477}));mesh.receiveShadow=true;scene.add(mesh);return mesh;
+  // Sol tropical texturé : variation d'herbe, terre et petites touffes, sans image externe.
+  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#789b58';ctx.fillRect(0,0,512,512);
+  let seed=481516;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  for(let i=0;i<24000;i++){
+    const x=rand()*512,y=rand()*512,r=.35+rand()*1.25;
+    ctx.fillStyle=rand()>.54?'rgba(37,82,37,.22)':'rgba(206,190,112,.17)';
+    ctx.beginPath();ctx.ellipse(x,y,r*1.8,r*.65,rand()*Math.PI,0,Math.PI*2);ctx.fill();
+  }
+  for(let i=0;i<1800;i++){
+    const x=rand()*512,y=rand()*512;ctx.strokeStyle='rgba(34,94,38,.32)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+(rand()-.5)*3,y-1-rand()*3);ctx.stroke();
+  }
+  const grass=new THREE.CanvasTexture(canvas);grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(170,170);
+  grass.anisotropy=Math.min(8,renderer&&renderer.capabilities?renderer.capabilities.getMaxAnisotropy():4);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:grass,color:0xffffff}));mesh.receiveShadow=true;scene.add(mesh);return mesh;
 }
 let osmRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulationCreated = false;
 const OBSTACLE_CELL = 96;
@@ -541,6 +556,7 @@ function generateCity() {
     document.getElementById('mapStatus').textContent = 'Mode hors ligne : quartier fictif de démonstration';
     generateFallbackDistrict();
     buildPlayableUrbanCore();
+    buildPlateauLandmarks();
     worldReady = true;
     startPlayerAtHome();
     if(mapOpen) drawBigMap();
@@ -552,6 +568,49 @@ function generateCity() {
 // NOYAU URBAIN GARANTI — quartier dense inspiré du Plateau
 // Fonctionne même si les serveurs cartographiques sont indisponibles.
 // ============================================================
+function createUrbanFlowerbeds(ox,oz){
+  const stemGeo=new THREE.CylinderGeometry(.035,.055,.58,5);
+  const petalGeo=new THREE.SphereGeometry(.13,6,5);
+  const centerGeo=new THREE.SphereGeometry(.075,6,5);
+  const stemMat=new THREE.MeshLambertMaterial({color:0x397b35});
+  const petalMats=[new THREE.MeshLambertMaterial({color:0xf2d05c}),new THREE.MeshLambertMaterial({color:0xe98b9a}),new THREE.MeshLambertMaterial({color:0xf4eee0})];
+  const stems=[],petals=[[],[],[]],centers=[];
+  const dummy=new THREE.Object3D();let seed=20261112;
+  function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  let beds=0,trees=0;
+  for(let attempt=0;attempt<210&&beds<58;attempt++){
+    const x=ox+(rnd()-.5)*1880,z=oz+(rnd()-.5)*1880;
+    if(isOnRoad(x,z,5)||overlapsExisting(x,z,7,6,2.5))continue;
+    const patch=new THREE.Mesh(new THREE.CircleGeometry(2.45,12),new THREE.MeshLambertMaterial({color:0x4f9148}));
+    patch.rotation.x=-Math.PI/2;patch.position.set(x,terrainHeight(x,z)+.075,z);patch.receiveShadow=true;scene.add(patch);
+    const n=6+Math.floor(rnd()*5);
+    for(let j=0;j<n;j++){
+      const fx=x+(rnd()-.5)*3.6,fz=z+(rnd()-.5)*3.6,fy=terrainHeight(fx,fz);
+      dummy.position.set(fx,fy+.32,fz);dummy.rotation.set(0,rnd()*Math.PI*2,0);dummy.scale.set(1,1,1);dummy.updateMatrix();stems.push(dummy.matrix.clone());
+      const color=Math.floor(rnd()*3);
+      for(let p=0;p<6;p++){
+        const a=p*Math.PI/3,px=fx+Math.cos(a)*.17,pz=fz+Math.sin(a)*.17;
+        dummy.position.set(px,fy+.62,pz);dummy.rotation.set(0,-a,0);dummy.scale.set(.78,.38,1.45);dummy.updateMatrix();petals[color].push(dummy.matrix.clone());
+      }
+      dummy.position.set(fx,fy+.66,fz);dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();centers.push(dummy.matrix.clone());
+    }
+    beds++;
+  }
+  function addInstances(geo,mat,matrices){
+    if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geo,mat,matrices.length);
+    matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=true;scene.add(mesh);
+  }
+  addInstances(stemGeo,stemMat,stems);
+  petals.forEach((list,i)=>addInstances(petalGeo,petalMats[i],list));
+  addInstances(centerGeo,new THREE.MeshLambertMaterial({color:0xf5c542}),centers);
+  for(let i=0;i<34&&trees<34;i++){
+    const x=ox+(rnd()-.5)*1850,z=oz+(rnd()-.5)*1850;
+    if(isOnRoad(x,z,4)||overlapsExisting(x,z,2.5,2.5,3))continue;
+    createTree(x,z);trees++;
+  }
+  console.info('Espaces verts créés :',beds,'massifs fleuris,',trees,'arbres');
+}
+
 function buildPlayableUrbanCore(){
   if(scene.userData.playableUrbanCoreBuilt)return;
   scene.userData.playableUrbanCoreBuilt=true;
@@ -564,20 +623,20 @@ function buildPlayableUrbanCore(){
   function strip(a,b,width,v,idx,y){const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz)||1,nx=-dz/len*width/2,nz=dx/len*width/2;quad(v,idx,{x:a.x+nx,z:a.z+nz},{x:b.x+nx,z:b.z+nz},{x:b.x-nx,z:b.z-nz},{x:a.x-nx,z:a.z-nz},y);}
   // Avenues, rues secondaires et rues transversales clairement visibles.
   const roads=[];
-  for(let row=-3;row<=3;row++){
-    const z=oz+row*245+(row%2)*18;
+  for(let row=-4;row<=4;row++){
+    const z=oz+row*185+(row%2)*12;
     const width=(row===0||row===-2)?17:10.5;
-    const a={x:ox-1050,z:z-28},b={x:ox+1050,z:z+28};
+    const a={x:ox-900,z:z-24},b={x:ox+900,z:z+24};
     strip(a,b,width,roadV,roadI,.045);roads.push({a,b,width});
     for(const side of [-1,1]){
       const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),nx=-dz/len,nz=dx/len,off=width/2+2.6;
       strip({x:a.x+nx*off*side,z:a.z+nz*off*side},{x:b.x+nx*off*side,z:b.z+nz*off*side},3.4,walkV,walkI,.07);
     }
   }
-  for(let col=-3;col<=3;col++){
-    const x=ox+col*255+(col%2)*14;
+  for(let col=-4;col<=4;col++){
+    const x=ox+col*185+(col%2)*12;
     const width=(col===0||col===2)?16:9.5;
-    const a={x:x-24,z:oz-1050},b={x:x+24,z:oz+1050};
+    const a={x:x-20,z:oz-900},b={x:x+20,z:oz+900};
     strip(a,b,width,roadV,roadI,.05);roads.push({a,b,width});
     for(const side of [-1,1]){
       const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),nx=-dz/len,nz=dx/len,off=width/2+2.4;
@@ -594,17 +653,17 @@ function buildPlayableUrbanCore(){
   const glassPalette=[0x6d9ca8,0x789eaa,0x527c89,0x8ab0b6];
   let seed=92831;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   function makeBox(parent,w,h,d,mat,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
-  const buildingRows=[-3,-2,-1,0,1,2,3];
+  const buildingRows=[-4,-3,-2,-1,0,1,2,3,4];
   let made=0;
-  for(const rz of buildingRows){for(let cx=-3;cx<=3;cx++){
-    const bx=ox+cx*255+(cx%2)*14,bz=oz+rz*245+(rz%2)*18;
+  for(const rz of buildingRows){for(let cx=-4;cx<=4;cx++){
+    const bx=ox+cx*185+(cx%2)*12,bz=oz+rz*185+(rz%2)*12;
     // Chaque îlot contient plusieurs parcelles, pas un seul bloc isolé.
     for(let sideX=-1;sideX<=1;sideX+=2){for(let sideZ=-1;sideZ<=1;sideZ+=2){
-      const count=2+(rnd()>.42?1:0);
-      for(let n=0;n<count&&made<130;n++){
-        const w=17+rnd()*19,d=15+rnd()*18;
-        const x=bx+sideX*(48+n*43)+(rnd()-.5)*12;
-        const z=bz+sideZ*(48+n*39)+(rnd()-.5)*12;
+      const count=2+(rnd()>.72?1:0);
+      for(let n=0;n<count&&made<250;n++){
+        const w=15+rnd()*21,d=14+rnd()*20;
+        const x=bx+sideX*(35+n*27)+(rnd()-.5)*9;
+        const z=bz+sideZ*(35+n*27)+(rnd()-.5)*9;
         if(Math.hypot(x-ox,z-oz)>1120)continue;
         if(overlapsExisting(x,z,w+5,d+5,5))continue;
         const central=Math.hypot(x-ox,z-oz)<420;
@@ -637,9 +696,17 @@ function buildPlayableUrbanCore(){
           if(floors>2&&floor>0&&rnd()>.68){makeBox(g,Math.min(3.4,w*.48),.16,.72,trimMat,0,yy-.62,d/2+.38);makeBox(g,Math.min(3.4,w*.48),.72,.07,trimMat,0,yy-.2,d/2+.72);}
         }
         windows.instanceMatrix.needsUpdate=true;g.add(windows);
-        // Porte et rez-de-chaussée commercial vitré.
-        const doorMat=new THREE.MeshLambertMaterial({color:0x49372b});
-        makeBox(g,1.25,2.25,.12,doorMat,-w*.22,1.13,d/2+.08);
+        // Entrée architecturale proportionnée : portail, double vantail et vitrage.
+        const portalW=shop?Math.min(3.35,Math.max(2.25,w*.15)):Math.min(2.75,Math.max(1.75,w*.105));
+        const portalH=shop?3.15:2.65,doorX=-w*.22,frontZ=d/2+.12;
+        const portalMat=new THREE.MeshLambertMaterial({color:0x263a3c});
+        const doorMat=new THREE.MeshLambertMaterial({color:0x31535b,transparent:true,opacity:.88});
+        makeBox(g,portalW+.38,portalH+.34,.14,trimMat,doorX,portalH/2,frontZ);
+        makeBox(g,portalW,portalH,.09,portalMat,doorX,portalH/2,frontZ+.085);
+        makeBox(g,(portalW-.18)/2,portalH-.18,.055,doorMat,doorX-portalW*.25,portalH/2,frontZ+.15);
+        makeBox(g,(portalW-.18)/2,portalH-.18,.055,doorMat,doorX+portalW*.25,portalH/2,frontZ+.15);
+        makeBox(g,.07,portalH-.15,.07,trimMat,doorX,portalH/2,frontZ+.19);
+        makeBox(g,.13,.13,.08,new THREE.MeshLambertMaterial({color:0xc6a65c}),doorX+portalW*.36,portalH*.48,frontZ+.22);
         if(shop){
           const awningMat=new THREE.MeshLambertMaterial({color:[0xb94f3d,0x287a63,0xd39a35,0x315f8a][Math.floor(rnd()*4)]});
           makeBox(g,w*.72,.22,1.1,awningMat,0,2.75,d/2+.45);
@@ -657,9 +724,11 @@ function buildPlayableUrbanCore(){
       }
     }}
   }}
-  // Arrêts de transport, kiosques, arbres et mobilier urbain.
-  for(let i=0;i<16;i++){
-    const x=ox-850+(i%4)*560+((i%2)*40),z=oz-760+Math.floor(i/4)*500;
+  // Jardins de rue, massifs fleuris et arbres : placés dans les îlots, jamais sur la chaussée.
+  createUrbanFlowerbeds(ox,oz);
+  // Arrêts de transport, kiosques et mobilier urbain.
+  for(let i=0;i<22;i++){
+    const x=ox-760+(i%5)*370+((i%2)*28),z=oz-700+Math.floor(i/5)*350;
     if(!isOnRoad(x,z,2)&&!overlapsExisting(x,z,3,3,2)){
       const kiosk=new THREE.Group();makeBox(kiosk,3.2,2.6,2.4,new THREE.MeshLambertMaterial({color:0xd5a15b}),0,1.3,0);makeBox(kiosk,3.6,.22,2.8,new THREE.MeshLambertMaterial({color:0x9a3f32}),0,2.72,0);kiosk.position.set(x,terrainHeight(x,z),z);scene.add(kiosk);addObstacle(x,z,3.5,2.8,3);addPOI(x,z,'commerce','Kiosque de quartier');
     }
@@ -667,7 +736,7 @@ function buildPlayableUrbanCore(){
   // Signalétique urbaine de quartier visible depuis la rue.
   makeLabel(ox+35,26,oz+35,'PLATEAU — ABIDJAN',0x244b45);
   document.getElementById('mapStatus').textContent += ' · quartier urbain construit';
-  console.info('Noyau urbain construit :',made,'bâtiments');
+  console.info('Noyau urbain densifié :',made,'bâtiments + jardins de rue');
 }
 
 function geoToWorld(lat, lon) {
@@ -702,6 +771,7 @@ async function loadAbidjanOSM() {
   buildOSMBuildings(buildingWays, nodes);
   buildOSMNodePlaces(data.elements.filter(e => e.type === 'node' && e.tags), nodes);
   buildOSMWaterAndParks(waterWays, nodes);
+  buildPlateauLandmarks();
   osmLoaded = true;
   refreshGameMapRoads();
   if(mapOpen) drawBigMap();
@@ -824,6 +894,11 @@ function buildOSMNodePlaces(elements,nodes){
   }
 }
 
+function isSignatureLandmarkTag(tag){
+  const name=String(tag.name||tag['name:fr']||'').toLowerCase();
+  return /tour f|la pyramide|h[oô]tel ivoire|sofitel.*ivoire|saint.?paul|stade f[eé]lix|sanctuaire marial/.test(name);
+}
+
 function buildOSMBuildings(ways,nodes) {
   const palette=[0xd5c8ad,0xc5b79c,0xe0d6c2,0xb8b0a1,0xd2b18c,0xaaa99f,0xe5d8c3];
   const positions=[], normals=[], colors=[], indices=[];
@@ -831,12 +906,14 @@ function buildOSMBuildings(ways,nodes) {
   let count=0, facadeWindowCount=0;
   const MAX_FACADE_WINDOWS=24000;
   ways.forEach(w=>{
-    if(count>=1800 || w.nodes.length<4)return;
+    if(count>=2600 || w.nodes.length<4)return;
     const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean); if(pts.length<4)return;
     const area=Math.abs(pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p.x*q.z-q.x*p.z;},0))/2;
     if(area<18||area>12000)return;
     const shape=new THREE.Shape(); shape.moveTo(pts[0].x,pts[0].z); for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z); shape.closePath();
-    const tag=w.tags||{}, levels=Math.max(1,Math.min(18,parseInt(tag['building:levels']||'')|| (tag.building==='apartments'?4:tag.building==='commercial'?3:2)));
+    const tag=w.tags||{};
+    if(isSignatureLandmarkTag(tag))return; // Modèles dédiés reconstruits plus précisément à leur vraie position.
+    const levels=Math.max(1,Math.min(18,parseInt(tag['building:levels']||'')|| (tag.building==='apartments'?4:tag.building==='commercial'?3:2)));
     const h=Math.max(3.2,Math.min(58,levels*3.05));
     // Détails de façade légers : vitrages et portes regroupés dans une seule géométrie.
     const signedArea=pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p.x*q.z-q.x*p.z;},0);
@@ -856,12 +933,19 @@ function buildOSMBuildings(ways,nodes) {
           facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
         }
       }
-      // Porte principale simple sur un côté du bâtiment.
+      // Entrée à l'échelle humaine, élargie pour les grands immeubles et commerces.
       if(e===0 && len>5){
-        const t=.5,wx=a.x+dx*t+outward.x*.055,wz=a.z+dz*t+outward.z*.055,bx=-dz/len*.52,bz=dx/len*.52,k=facadePositions.length/3;
-        facadePositions.push(wx-bx,.05,wz-bz,wx+bx,.05,wz+bz,wx+bx,2.25,wz+bz,wx-bx,2.25,wz-bz);
-        for(let v=0;v<4;v++)facadeColors.push(.16,.10,.065);
+        const t=.5,wx=a.x+dx*t+outward.x*.075,wz=a.z+dz*t+outward.z*.075;
+        const doorWidth=Math.max(1.55,Math.min(3.15,len*.105)),doorHeight=Math.max(2.35,Math.min(3.25,h*.085));
+        const bx=-dz/len*doorWidth/2,bz=dx/len*doorWidth/2,k=facadePositions.length/3;
+        facadePositions.push(wx-bx,.05,wz-bz,wx+bx,.05,wz+bz,wx+bx,doorHeight,wz+bz,wx-bx,doorHeight,wz-bz);
+        for(let v=0;v<4;v++)facadeColors.push(.055,.075,.082);
         facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
+        // Imposte vitrée au-dessus de la porte : entrée lisible même sur une grande façade.
+        const tx=wx+outward.x*.018,tz=wz+outward.z*.018,half=doorWidth*.42,bx2=-dz/len*half,bz2=dx/len*half,k2=facadePositions.length/3;
+        facadePositions.push(tx-bx2,doorHeight+.12,tz-bz2,tx+bx2,doorHeight+.12,tz+bz2,tx+bx2,doorHeight+.42,tz+bz2,tx-bx2,doorHeight+.42,tz-bz2);
+        for(let v=0;v<4;v++)facadeColors.push(.22,.39,.43);
+        facadeIndices.push(k2,k2+1,k2+2,k2,k2+2,k2+3);
       }
     }
     const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false});
@@ -1692,78 +1776,98 @@ function makeLabel(x, y, z, text, color) {
 // ============================================================
 // LANDMARKS RECONNAISSABLES
 // ============================================================
-function buildPlateauLandmarks() {
-  const half = CITY_SIZE / 2;
-  // Tour F (symbole Plateau)
-  buildTourF(-half * 0.28, half * 0.42);
-  // Cathédrale
-  buildCathédrale(-half * 0.12, half * 0.28);
-  // Admin
-  buildAdministrative(-half * 0.38, half * 0.55);
-  // Quelques boutiques de luxe / immeubles
-  for (let i = 0; i < 6; i++) {
-    const bx = -half * 0.2 + (Math.random() - 0.5) * 90;
-    const bz = half * 0.45 + (Math.random() - 0.5) * 70;
-    if (!wouldTouchRoad(bx, bz, 10, 10) && !overlapsExisting(bx, bz, 10, 10, 3)) {
-      buildLuxuryShop(bx, bz);
-    }
+function buildPlateauLandmarks(){
+  if(scene.userData.abidjanLandmarksBuilt)return;
+  scene.userData.abidjanLandmarksBuilt=true;
+  const p=(lat,lon)=>geoToWorld(lat,lon);
+  const tour=p(5.33559,-4.02222),pyramide=p(5.32235,-4.01642),hotel=p(5.32694,-4.00556);
+  const cathedral=p(5.3330,-4.0201),stadium=p(5.32833,-4.01833),sanctuary=p(5.35734,-4.03918),bridge=p(5.33489,-4.01601);
+  buildTourF(tour.x,tour.z);
+  buildPyramide(pyramide.x,pyramide.z);
+  buildHotelIvoire(hotel.x,hotel.z);
+  buildCathédrale(cathedral.x,cathedral.z);
+  buildFeliciaStadium(stadium.x,stadium.z);
+  buildSanctuaireMarial(sanctuary.x,sanctuary.z);
+  buildBridgeMarker(bridge.x,bridge.z);
+}
+
+function landmarkBase(x,z,w,d,h,type,name){
+  addObstacle(x,z,w,d,h);allBuildings.push({x,z,w,d,h,type});
+  addPOI(x,z,'monument',name);makeLabel(x,h+3,z,name,0x234d65);
+}
+
+function buildTourF(x,z){
+  const g=new THREE.Group(),glass=new THREE.MeshLambertMaterial({color:0x668b9b}),edge=new THREE.MeshLambertMaterial({color:0xb7c7ca}),dark=new THREE.MeshLambertMaterial({color:0x334b58});
+  const tiers=[{w:38,d:32,h:112,y:56},{w:31,d:27,h:142,y:183},{w:24,d:21,h:132,y:320}];
+  tiers.forEach((t,i)=>{
+    const body=new THREE.Mesh(new THREE.BoxGeometry(t.w,t.h,t.d),i===1?glass:dark);body.position.y=t.y;body.castShadow=true;g.add(body);
+    const band=new THREE.Mesh(new THREE.BoxGeometry(t.w+.7,.9,t.d+.7),edge);band.position.y=t.y+t.h/2-.8;g.add(band);
+    for(let y=t.y-t.h/2+4;y<t.y+t.h/2-2;y+=5.2){const stripe=new THREE.Mesh(new THREE.BoxGeometry(t.w+.18,.16,t.d+.18),edge);stripe.position.y=y;g.add(stripe);}
+  });
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(18,12,16),edge);crown.position.y=397;g.add(crown);
+  const beacon=new THREE.Mesh(new THREE.SphereGeometry(1.25,8,6),new THREE.MeshBasicMaterial({color:0xff3333}));beacon.position.y=405;g.add(beacon);scene.userData.tourFLight=beacon;
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,44,38,410,'tourF','Tour F · Le Plateau');
+}
+
+function buildPyramide(x,z){
+  const g=new THREE.Group(),stone=new THREE.MeshLambertMaterial({color:0xb6a98f}),glass=new THREE.MeshLambertMaterial({color:0x557984});
+  for(let i=0;i<8;i++){
+    const w=58-i*5.4,d=52-i*4.8,h=5.5,level=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),i%2?glass:stone);
+    level.position.y=3+i*7.2;level.castShadow=true;g.add(level);
   }
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(14,4,13),stone);crown.position.y=58;g.add(crown);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,62,58,62,'pyramide','La Pyramide · Le Plateau');
 }
 
-function buildTourF(x, z) {
-  const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 20), new THREE.MeshLambertMaterial({ color: 0x546e7a }));
-  base.position.y = 5; base.castShadow = true; g.add(base);
-  const shaft = new THREE.Mesh(new THREE.BoxGeometry(12, 160, 12), new THREE.MeshLambertMaterial({ color: 0x78909c }));
-  shaft.position.y = 90; shaft.castShadow = true; g.add(shaft);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 14), new THREE.MeshLambertMaterial({ color: 0x90a4ae }));
-  top.position.y = 174; g.add(top);
-  const light = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-  light.position.y = 180; g.add(light);
-  scene.userData.tourFLight = light;
-  g.position.set(x, 0, z); scene.add(g);
-  addObstacle(x, z, 22, 22, 180);
-  allBuildings.push({ x, z, w: 22, d: 22, h: 180, type: 'tourF' });
-  makeLabel(x, 185, z, 'Tour F', 0x1e90ff);
-  addPOI(x, z, 'monument', 'Tour F — Plateau');
-  addDoor(x, z + 11, 0, x, z, 22, 22, 180, 0x546e7a, 'plateau');
+function buildHotelIvoire(x,z){
+  const g=new THREE.Group(),cream=new THREE.MeshLambertMaterial({color:0xd8d0b8}),glass=new THREE.MeshLambertMaterial({color:0x7196a0}),roof=new THREE.MeshLambertMaterial({color:0x9b8b70});
+  const podium=new THREE.Mesh(new THREE.BoxGeometry(68,15,48),cream);podium.position.y=7.5;podium.castShadow=true;g.add(podium);
+  const tower=new THREE.Mesh(new THREE.BoxGeometry(24,104,25),cream);tower.position.set(8,67,0);tower.castShadow=true;g.add(tower);
+  for(let y=18;y<116;y+=4.3){const band=new THREE.Mesh(new THREE.BoxGeometry(24.5,.18,25.5),glass);band.position.set(8,y,0);g.add(band);}
+  const roofBox=new THREE.Mesh(new THREE.BoxGeometry(28,2,29),roof);roofBox.position.set(8,120,0);g.add(roofBox);
+  const pool=new THREE.Mesh(new THREE.CircleGeometry(15,32),new THREE.MeshLambertMaterial({color:0x3e9eb0}));pool.rotation.x=-Math.PI/2;pool.position.set(-17,.18,36);g.add(pool);
+  const palms=new THREE.Mesh(new THREE.CylinderGeometry(.45,.7,7,7),new THREE.MeshLambertMaterial({color:0x765338}));palms.position.set(-27,3.5,18);g.add(palms);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,76,68,122,'hotel-ivoire','Sofitel Hôtel Ivoire · Cocody');
 }
 
-function buildCathédrale(x, z) {
-  const g = new THREE.Group();
-  const main = new THREE.Mesh(new THREE.BoxGeometry(26, 14, 20), new THREE.MeshLambertMaterial({ color: 0xf0f0f0 }));
-  main.position.y = 7; main.castShadow = true; g.add(main);
-  const tower = new THREE.Mesh(new THREE.BoxGeometry(6, 22, 6), new THREE.MeshLambertMaterial({ color: 0xeceff1 }));
-  tower.position.set(-8, 18, -4); g.add(tower);
-  g.position.set(x, 0, z); scene.add(g);
-  addObstacle(x, z, 28, 22, 22);
-  allBuildings.push({ x, z, w: 28, d: 22, h: 22, type: 'cathedrale' });
-  makeLabel(x, 24, z, 'Cathédrale St-Paul', 0xffffff);
-  addPOI(x, z, 'monument', 'Cathédrale Saint-Paul');
-  addDoor(x, z + 11, 0, x, z, 28, 22, 14, 0xf0f0f0, 'cathedrale');
+function buildCathédrale(x,z){
+  const g=new THREE.Group(),white=new THREE.MeshLambertMaterial({color:0xe7e8df}),roof=new THREE.MeshLambertMaterial({color:0x9aa9aa}),glass=new THREE.MeshLambertMaterial({color:0x4e899a});
+  const nave=new THREE.Mesh(new THREE.BoxGeometry(56,15,34),white);nave.position.y=7.5;nave.castShadow=true;g.add(nave);
+  const roofA=new THREE.Mesh(new THREE.BoxGeometry(62,2.5,38),roof);roofA.position.set(0,16,0);g.add(roofA);
+  const crossStem=new THREE.Mesh(new THREE.BoxGeometry(5,68,6),white);crossStem.position.set(-23,42,-4);crossStem.rotation.z=-.16;g.add(crossStem);
+  const crossArm=new THREE.Mesh(new THREE.BoxGeometry(43,5,6),white);crossArm.position.set(-7,57,-4);crossArm.rotation.z=-.12;g.add(crossArm);
+  const bell=new THREE.Mesh(new THREE.BoxGeometry(8,30,8),white);bell.position.set(24,18,-8);g.add(bell);
+  for(let i=0;i<6;i++){const win=new THREE.Mesh(new THREE.BoxGeometry(1.1,6,1),glass);win.position.set(-20+i*8,8,17.7);g.add(win);}
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,66,44,76,'cathedrale','Cathédrale Saint-Paul · Le Plateau');
 }
 
-function buildAdministrative(x, z) {
-  const g = new THREE.Group();
-  const main = new THREE.Mesh(new THREE.BoxGeometry(22, 12, 18), new THREE.MeshLambertMaterial({ color: 0xbdc3c7 }));
-  main.position.y = 6; main.castShadow = true; g.add(main);
-  g.position.set(x, 0, z); scene.add(g);
-  addObstacle(x, z, 24, 20, 14);
-  allBuildings.push({ x, z, w: 24, d: 20, h: 14, type: 'administratif' });
-  makeLabel(x, 15, z, 'Administration', 0xbdc3c7);
-  addPOI(x, z, 'administratif', 'Bâtiment administratif');
-  addDoor(x, z + 10, 0, x, z, 24, 20, 14, 0xbdc3c7, 'plateau');
+function buildFeliciaStadium(x,z){
+  const g=new THREE.Group(),stand=new THREE.Mesh(new THREE.CylinderGeometry(42,58,18,40,1,true),new THREE.MeshLambertMaterial({color:0xc9c4b6,side:THREE.DoubleSide}));
+  stand.scale.x=1.45;stand.position.y=9;g.add(stand);
+  const pitch=new THREE.Mesh(new THREE.BoxGeometry(105,1,68),new THREE.MeshLambertMaterial({color:0x39864a}));pitch.position.y=1;g.add(pitch);
+  const lineMat=new THREE.MeshLambertMaterial({color:0xecebd9});
+  const border=new THREE.Mesh(new THREE.BoxGeometry(107,.08,70),lineMat);border.position.y=1.58;g.add(border);
+  const roof=new THREE.Mesh(new THREE.TorusGeometry(57,2.4,5,48),new THREE.MeshLambertMaterial({color:0xe2e0d7}));roof.rotation.x=Math.PI/2;roof.scale.set(1.42,1,.72);roof.position.y=20;g.add(roof);
+  for(let i=0;i<4;i++){const goal=new THREE.Mesh(new THREE.BoxGeometry(.12,2.4,7.3),lineMat);goal.position.set(i<2?-49:49,2.2,i%2?-10:10);g.add(goal);}
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,124,94,24,'stadium','Stade Félix-Houphouët-Boigny · Le Félicia');
 }
 
-function buildLuxuryShop(x, z) {
-  const g = new THREE.Group();
-  const main = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 8), new THREE.MeshLambertMaterial({ color: 0xf39c12 }));
-  main.position.y = 3; main.castShadow = true; g.add(main);
-  g.position.set(x, 0, z); scene.add(g);
-  addObstacle(x, z, 8, 8, 6);
-  allBuildings.push({ x, z, w: 8, d: 8, h: 6, type: 'luxe' });
-  addPOI(x, z, 'luxe', 'Boutique de luxe');
-  addDoor(x, z + 4.2, 0, x, z, 8, 8, 6, 0xf39c12, 'luxe');
+function buildSanctuaireMarial(x,z){
+  const g=new THREE.Group(),white=new THREE.MeshLambertMaterial({color:0xe6e2d4}),blue=new THREE.MeshLambertMaterial({color:0x527e9a});
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(18,24,18,8),white);base.position.y=9;g.add(base);
+  const tower=new THREE.Mesh(new THREE.CylinderGeometry(4.5,8,74,8),white);tower.position.y=53;g.add(tower);
+  const cap=new THREE.Mesh(new THREE.ConeGeometry(7,14,8),blue);cap.position.y=97;g.add(cap);
+  const cross=new THREE.Mesh(new THREE.BoxGeometry(1.2,12,1.2),white);cross.position.y=109;g.add(cross);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,50,48,116,'sanctuaire','Sanctuaire marial · Attécoubé');
+}
+
+function buildBridgeMarker(x,z){
+  // Le pont routier OSM fournit le tracé réel ; ce pylône et ses haubans le rendent repérable.
+  const g=new THREE.Group(),concrete=new THREE.MeshLambertMaterial({color:0xd9d9d2}),cable=new THREE.MeshLambertMaterial({color:0xe5e2d7});
+  const pylon=new THREE.Mesh(new THREE.BoxGeometry(5,108,5),concrete);pylon.position.y=54;g.add(pylon);
+  for(let i=0;i<9;i++){const cableMesh=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,Math.hypot(46-i*4,53),5),cable);cableMesh.position.set((i-4)*5,52,0);cableMesh.rotation.z=Math.atan2(46-i*4,53);g.add(cableMesh);}
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);addPOI(x,z,'monument','Pont Alassane Ouattara · Cocody–Plateau');
+  makeLabel(x,112,z,'Pont Alassane Ouattara',0x2d6073);
 }
 
 function buildAdjaméMarket() {
