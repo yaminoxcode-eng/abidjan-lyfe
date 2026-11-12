@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Abidjan Life — Ville ouverte & simulation de vie V1.2</title>
+<title>Abidjan Life — Refonte urbaine V1.3</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -199,23 +199,23 @@ window.addEventListener('error', function(e) {
 // ============================================================
 // CONSTANTES VILLE (inspiré géographie Abidjan)
 // ============================================================
-const CITY_SIZE = 26000; // couvre l’emprise cartographique OSM chargée
+const CITY_SIZE = 40000; // couvre le Plateau, les communes périphériques et Ébimpé
 const BLOCK = 52; // conservé uniquement pour compatibilité des anciens helpers
 const ROAD_W = 14;
 const SIDEWALK = 4;
 const ROAD_HALF = ROAD_W / 2;
 const ROAD_SAFE = ROAD_HALF + SIDEWALK + 1.5;
 const ABIDJAN_ORIGIN = { lat: 5.315, lon: -4.015 };
-const ABIDJAN_BBOX = { south: 5.245, west: -4.12, north: 5.39, east: -3.90 };
+const ABIDJAN_BBOX = { south: 5.245, west: -4.12, north: 5.50, east: -3.90 };
 // Relief doux : Abidjan est globalement peu accidentée, on conserve des pentes urbaines faibles.
 function terrainHeight(x,z){
   return 0.85*Math.sin(x/2100)*Math.cos(z/2600) + 0.62*Math.sin((x+z)/1450) + 0.28*Math.cos((x-z)/720);
 }
 function createAbidjanTerrain(){
-  const segments=210, half=CITY_SIZE/2, positions=[],indices=[];
-  for(let iz=0;iz<=segments;iz++){const z=-half+CITY_SIZE*iz/segments;for(let ix=0;ix<=segments;ix++){const x=-half+CITY_SIZE*ix/segments;positions.push(x,terrainHeight(x,z)-.08,z);}}
+  const segments=210, half=CITY_SIZE/2, positions=[],uvs=[],indices=[];
+  for(let iz=0;iz<=segments;iz++){const z=-half+CITY_SIZE*iz/segments;for(let ix=0;ix<=segments;ix++){const x=-half+CITY_SIZE*ix/segments;positions.push(x,terrainHeight(x,z)-.08,z);uvs.push(ix/segments,iz/segments);}}
   for(let iz=0;iz<segments;iz++)for(let ix=0;ix<segments;ix++){const a=iz*(segments+1)+ix,b=a+1,c=a+segments+1,d=c+1;indices.push(a,c,b,b,c,d);}
-  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setIndex(indices);geo.computeVertexNormals();
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.setIndex(indices);geo.computeVertexNormals();
   // Sol tropical texturé : variation d'herbe, terre et petites touffes, sans image externe.
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
   const ctx=canvas.getContext('2d');ctx.fillStyle='#789b58';ctx.fillRect(0,0,512,512);
@@ -646,7 +646,13 @@ function buildPlayableUrbanCore(){
   function addSurface(v,idx,mat){if(!v.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setIndex(idx);g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.receiveShadow=true;scene.add(m);}
   addSurface(roadV,roadI,roadMat);addSurface(walkV,walkI,sidewalkMat);
   // Lignes centrales et passages piétons aux carrefours.
-  for(const r of roads){const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,len=Math.hypot(dx,dz),nx=-dz/len,nz=dx/len;if(r.width>14){for(let t=35;t<len-20;t+=38){const cx=r.a.x+dx/len*t,cz=r.a.z+dz/len*t;strip({x:cx+nx*.12,z:cz+nz*.12},{x:cx+dx/len*8-nx*.12,z:cz+dz/len*8-nz*.12},.22,markV,markI,.09);}}}
+  for(const r of roads){
+    const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,len=Math.hypot(dx,dz),nx=-dz/len,nz=dx/len;
+    if(r.width>8.5){const step=r.width>14?38:31,dash=r.width>14?8:5;for(let t=24;t<len-14;t+=step){
+      const cx=r.a.x+dx/len*t,cz=r.a.z+dz/len*t;
+      strip({x:cx+nx*.09,z:cz+nz*.09},{x:cx+dx/len*dash-nx*.09,z:cz+dz/len*dash-nz*.09},.16,markV,markI,.09);
+    }}
+  }
   addSurface(markV,markI,markingMat);
   // Architecture détaillée : socle, façades colorées, fenêtres, balcons, corniche et enseignes.
   const facadePalette=[0xd8c5a5,0xc8b89e,0xe2d5bd,0xb8c4c2,0xd5b69a,0xc7c0ae,0xe1c9a9,0xaeb8b5];
@@ -896,7 +902,7 @@ function buildOSMNodePlaces(elements,nodes){
 
 function isSignatureLandmarkTag(tag){
   const name=String(tag.name||tag['name:fr']||'').toLowerCase();
-  return /tour f|la pyramide|h[oô]tel ivoire|sofitel.*ivoire|saint.?paul|stade f[eé]lix|sanctuaire marial/.test(name);
+  return /tour f|la pyramide|h[oô]tel ivoire|sofitel.*ivoire|saint.?paul|stade f[eé]lix|sanctuaire marial|postel 2001|mus[eé]e des civilisations|palais pr[eé]sidentiel|stade alassane|stade olympique/.test(name);
 }
 
 function buildOSMBuildings(ways,nodes) {
@@ -1781,13 +1787,17 @@ function buildPlateauLandmarks(){
   scene.userData.abidjanLandmarksBuilt=true;
   const p=(lat,lon)=>geoToWorld(lat,lon);
   const tour=p(5.33559,-4.02222),pyramide=p(5.32235,-4.01642),hotel=p(5.32694,-4.00556);
-  const cathedral=p(5.3330,-4.0201),stadium=p(5.32833,-4.01833),sanctuary=p(5.35734,-4.03918),bridge=p(5.33489,-4.01601);
+  const cathedral=p(5.3330,-4.0201),stadium=p(5.32833,-4.01833),sanctuary=p(5.35734,-4.03918),bridge=p(5.33489,-4.01601),postel=p(5.32577,-4.01741),palace=p(5.31832,-4.0215),museum=p(5.3207,-4.0128),ebimpe=p(5.48081,-4.07439);
   buildTourF(tour.x,tour.z);
   buildPyramide(pyramide.x,pyramide.z);
   buildHotelIvoire(hotel.x,hotel.z);
   buildCathédrale(cathedral.x,cathedral.z);
   buildFeliciaStadium(stadium.x,stadium.z);
   buildSanctuaireMarial(sanctuary.x,sanctuary.z);
+  buildPostelTower(postel.x,postel.z);
+  buildPresidentialPalace(palace.x,palace.z);
+  buildCivilisationsMuseum(museum.x,museum.z);
+  buildEbimpeStadium(ebimpe.x,ebimpe.z);
   buildBridgeMarker(bridge.x,bridge.z);
 }
 
@@ -1859,6 +1869,47 @@ function buildSanctuaireMarial(x,z){
   const cap=new THREE.Mesh(new THREE.ConeGeometry(7,14,8),blue);cap.position.y=97;g.add(cap);
   const cross=new THREE.Mesh(new THREE.BoxGeometry(1.2,12,1.2),white);cross.position.y=109;g.add(cross);
   g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,50,48,116,'sanctuaire','Sanctuaire marial · Attécoubé');
+}
+
+function buildPostelTower(x,z){
+  const g=new THREE.Group(),glass=new THREE.MeshLambertMaterial({color:0x668b9a}),frame=new THREE.MeshLambertMaterial({color:0x9ca9aa});
+  const base=new THREE.Mesh(new THREE.BoxGeometry(32,8,27),frame);base.position.y=4;g.add(base);
+  const shaft=new THREE.Mesh(new THREE.BoxGeometry(22,96,19),glass);shaft.position.y=56;shaft.castShadow=true;g.add(shaft);
+  for(let y=12;y<105;y+=3.8){const band=new THREE.Mesh(new THREE.BoxGeometry(22.5,.22,19.5),frame);band.position.y=y;g.add(band);}
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(24,2,21),frame);crown.position.y=106;g.add(crown);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,36,32,108,'postel','Tour Postel 2001 · Le Plateau');
+}
+
+function buildPresidentialPalace(x,z){
+  const g=new THREE.Group(),ivory=new THREE.MeshLambertMaterial({color:0xe4ddc8}),stone=new THREE.MeshLambertMaterial({color:0xb7a98c}),glass=new THREE.MeshLambertMaterial({color:0x7597a0});
+  const podium=new THREE.Mesh(new THREE.BoxGeometry(76,4,54),stone);podium.position.y=2;g.add(podium);
+  const main=new THREE.Mesh(new THREE.BoxGeometry(58,15,36),ivory);main.position.y=11.5;main.castShadow=true;g.add(main);
+  const wing=new THREE.Mesh(new THREE.BoxGeometry(20,10,42),ivory);wing.position.set(-34,7,0);g.add(wing);
+  const portico=new THREE.Mesh(new THREE.BoxGeometry(24,7,5),stone);portico.position.set(0,7,20);g.add(portico);
+  for(let i=0;i<6;i++){const col=new THREE.Mesh(new THREE.CylinderGeometry(.42,.5,7,8),ivory);col.position.set(-10+i*4,7,22);g.add(col);}
+  const windows=new THREE.Mesh(new THREE.BoxGeometry(35,4,.15),glass);windows.position.set(0,13.5,18.2);g.add(windows);
+  const garden=new THREE.Mesh(new THREE.BoxGeometry(90,.18,68),new THREE.MeshLambertMaterial({color:0x5c8b4b}));garden.position.set(0,.08,0);g.add(garden);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,94,76,20,'palais-presidentiel','Palais présidentiel · Le Plateau');
+}
+
+function buildCivilisationsMuseum(x,z){
+  const g=new THREE.Group(),sand=new THREE.MeshLambertMaterial({color:0xc9b99a}),white=new THREE.MeshLambertMaterial({color:0xe0d8c7}),glass=new THREE.MeshLambertMaterial({color:0x628a91});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(64,10,42),sand);body.position.y=5;body.castShadow=true;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(70,1.4,48),white);roof.position.y=10.6;g.add(roof);
+  for(let i=0;i<9;i++){const col=new THREE.Mesh(new THREE.BoxGeometry(1.2,7,.7),white);col.position.set(-27+i*6,3.7,21.8);g.add(col);}
+  const windows=new THREE.Mesh(new THREE.BoxGeometry(46,3,.16),glass);windows.position.set(0,5.5,21.2);g.add(windows);
+  const entrance=new THREE.Mesh(new THREE.BoxGeometry(5,4,.2),glass);entrance.position.set(0,2.4,21.35);g.add(entrance);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,74,54,12,'museum','Musée des Civilisations · Le Plateau');
+}
+
+function buildEbimpeStadium(x,z){
+  const g=new THREE.Group(),shell=new THREE.MeshLambertMaterial({color:0xdfe3e0}),roofMat=new THREE.MeshLambertMaterial({color:0xf3f1e8}),seatMat=new THREE.MeshLambertMaterial({color:0x276a91});
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(70,92,28,48,1,true),new THREE.MeshLambertMaterial({color:0xd1d5d1,side:THREE.DoubleSide}));bowl.scale.x=1.38;bowl.position.y=14;g.add(bowl);
+  const pitch=new THREE.Mesh(new THREE.BoxGeometry(105,1,68),new THREE.MeshLambertMaterial({color:0x398b4b}));pitch.position.y=1;g.add(pitch);
+  const inner=new THREE.Mesh(new THREE.CylinderGeometry(64,70,9,48,1,true),seatMat);inner.scale.x=1.38;inner.position.y=12;g.add(inner);
+  const roof=new THREE.Mesh(new THREE.TorusGeometry(92,5,7,64),roofMat);roof.rotation.x=Math.PI/2;roof.scale.set(1.38,1,.92);roof.position.y=31;g.add(roof);
+  const support=new THREE.Mesh(new THREE.CylinderGeometry(2,2,24,8),shell);support.position.set(0,18,0);g.add(support);
+  g.position.set(x,terrainHeight(x,z),z);scene.add(g);landmarkBase(x,z,240,210,38,'stadium-ebimpe','Stade olympique Alassane-Ouattara · Ébimpé');
 }
 
 function buildBridgeMarker(x,z){
@@ -2064,6 +2115,28 @@ function createVehicleMesh(type) {
     cabin.position.set(0, 1.55, -0.15); g.add(cabin);
     addWheel(-0.85, 0.35, 1.2, 0.35, 0.2); addWheel(0.85, 0.35, 1.2, 0.35, 0.2);
     addWheel(-0.85, 0.35, -1.2, 0.35, 0.2); addWheel(0.85, 0.35, -1.2, 0.35, 0.2);
+  }
+  // Détails communs : optiques, calandre, pare-chocs, rétroviseurs et vitrages.
+  if(type!=='moto'){
+    const dims=type==='bus'?{w:2.45,len:8.2,front:4.12,rear:-4.12,lightY:1.35}:type==='gbaka'?{w:2.2,len:5.5,front:2.75,rear:-2.75,lightY:1.05}:{w:1.85,len:4.2,front:2.1,rear:-2.1,lightY:.9};
+    const bumperMat=new THREE.MeshLambertMaterial({color:0x30383b}),chromeMat=new THREE.MeshLambertMaterial({color:0xaeb7b5});
+    const headMat=new THREE.MeshBasicMaterial({color:0xfff0c2}),tailMat=new THREE.MeshBasicMaterial({color:0xc51f24});
+    const bumper=new THREE.Mesh(new THREE.BoxGeometry(dims.w*.96,.18,.16),bumperMat);bumper.position.set(0,.48,dims.front+.015);g.add(bumper);
+    const rearBumper=new THREE.Mesh(new THREE.BoxGeometry(dims.w*.96,.18,.16),bumperMat);rearBumper.position.set(0,.48,dims.rear-.015);g.add(rearBumper);
+    const grill=new THREE.Mesh(new THREE.BoxGeometry(dims.w*.34,.32,.055),chromeMat);grill.position.set(0,.78,dims.front+.105);g.add(grill);
+    for(const side of [-1,1]){
+      const lamp=new THREE.Mesh(new THREE.BoxGeometry(.32,.2,.09),headMat);lamp.position.set(side*dims.w*.34,dims.lightY,dims.front+.09);g.add(lamp);
+      const rear=new THREE.Mesh(new THREE.BoxGeometry(.24,.25,.08),tailMat);rear.position.set(side*dims.w*.36,.9,dims.rear-.08);g.add(rear);taillights.push(rear);
+      const mirror=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.28),bumperMat);mirror.position.set(side*(dims.w*.5+.08),1.42,.75);g.add(mirror);
+      if(type!=='bus'&&type!=='gbaka'){
+        const sideGlass=new THREE.Mesh(new THREE.BoxGeometry(.055,.48,.72),glassMat);sideGlass.position.set(side*(dims.w/2+.012),1.48,-.18);g.add(sideGlass);
+      }
+    }
+    if(type!=='bus'&&type!=='gbaka'){
+      const windshield=new THREE.Mesh(new THREE.BoxGeometry(dims.w*.72,.52,.06),glassMat);windshield.position.set(0,1.48,dims.front*.48);g.add(windshield);
+      const rearGlass=new THREE.Mesh(new THREE.BoxGeometry(dims.w*.68,.42,.06),glassMat);rearGlass.position.set(0,1.45,dims.rear*.48);g.add(rearGlass);
+      const plate=new THREE.Mesh(new THREE.BoxGeometry(.62,.2,.035),new THREE.MeshLambertMaterial({color:0xf4f1dc}));plate.position.set(0,.65,dims.front+.12);g.add(plate);
+    }
   }
   g.userData.taillights = taillights;
   return g;
