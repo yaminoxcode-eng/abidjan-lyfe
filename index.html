@@ -2224,11 +2224,7 @@ function interactWithFurniture(){
   const item=findNearbyFurniture();
   if(!item){showMessage('Approche-toi d’un meuble pour interagir.');return;}
   const gp=currentInterior.group.position;
-  if(item.type==='elevator'){openElevatorMenu();return;}
-  if(false){
-    if(currentInterior.numFloors<2){showMessage('Cet immeuble ne possède qu’un seul étage accessible.');return;}
-    return;
-  }
+  if(item.type==='elevator'){showMessage('Appuie sur E pour choisir ton étage.');return;}
   if(item.type==='assoir'||item.type==='dormir'){
     playerShowering=false;playerSitting=true;item.previousType=item.type;item.previousLabel=item.label;player.position.x=gp.x+item.x;player.position.z=gp.z+item.z+0.75;
     player.position.y=.02;player.rotation.y=Math.PI;
