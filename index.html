@@ -222,7 +222,7 @@ let osmRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulation
 const OBSTACLE_CELL = 96;
 const obstacleGrid = new Map();
 let jumpQueued = false;
-let leafletMap = null, leafletPlayerMarker = null, leafletRoadLayer = null, mapFollowPlayer = true;
+let leafletMap = null, leafletPlayerMarker = null, leafletRoadLayer = null, leafletHeadingLine = null, mapFollowPlayer = true;
 let cameraMode=false,cameraOriginalFov=55,mediaRecorder=null,recordedChunks=[],gameGallery=[];
 let lastExteriorPosition = null;
 let initialHomeEntered = false;
@@ -1631,7 +1631,8 @@ function generateInterior(id, bw, bd, numFloors, wallColor, style) {
   if(style==='resident'&&apartmentLinks.length){
     const template=generateInterior(id+'_apartment_template',Math.max(10,roomW*.78),Math.max(10,roomD*.78),1,wallColor,'villa');scene.remove(template.group);
     apartmentLinks.forEach((link,index)=>{const aptGroup=template.group.clone(true);aptGroup.position.set(90000+(interiorIndex*12+index)*36,0,90000);aptGroup.visible=false;scene.add(aptGroup);
-      apartments.push({group:aptGroup,floors:aptGroup.children.slice(),doorId:id+'_apt_'+index,floorH:template.floorH,roomW:template.roomW,roomD:template.roomD,numFloors:1,currentFloor:0,interactables:template.interactables.map(x=>({...x})),colliders:template.colliders.map(x=>({...x})),style:'apartment'});
+      const sourceObjects=[],cloneObjects=[];template.group.traverse(o=>sourceObjects.push(o));aptGroup.traverse(o=>cloneObjects.push(o));const objectMap=new Map(sourceObjects.map((o,i)=>[o,cloneObjects[i]]));
+      apartments.push({group:aptGroup,floors:aptGroup.children.slice(),doorId:id+'_apt_'+index,floorH:template.floorH,roomW:template.roomW,roomD:template.roomD,numFloors:1,currentFloor:0,interactables:template.interactables.map(x=>({...x,object:objectMap.get(x.object)||x.object})),colliders:template.colliders.map(x=>({...x})),style:'apartment'});
     });
   }
   return {group,floors,doorId:id,floorH,roomW,roomD,numFloors,currentFloor:0,interactables,colliders,style,apartments};
@@ -2288,7 +2289,7 @@ function interactWithFurniture(){
 }
 
 function updatePlayer(delta) {
-  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen || elevatorMenuOpen || elevatorTravel) return;
+  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen || elevatorMenuOpen || elevatorTravel || cameraMode) return;
   // Comme dans Les Sims : une fois assis/allongé, le personnage reste immobilisé
   // jusqu'à l'action explicite « Se relever » avec F.
   if(playerSitting){ keys['z']=keys['w']=keys['q']=keys['a']=keys['s']=keys['d']=keys['arrowup']=keys['arrowdown']=keys['arrowleft']=keys['arrowright']=keys['shift']=false; return; }
