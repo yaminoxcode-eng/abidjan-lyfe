@@ -42,6 +42,13 @@
   #startBtn { padding: 14px 36px; font-size: 18px; font-weight: 700; background: #ffa502; border: none; border-radius: 10px; color: #1e272e; cursor: pointer; }
   #startBtn:hover { background: #ffb733; }
   .controls { font-size: 12px; color: #b2bec3; margin-top: 18px; line-height: 1.7; }
+  #elevatorMenu{position:absolute;inset:0;z-index:35;display:none;align-items:center;justify-content:center;background:rgba(3,8,14,.72)}
+  #elevatorCard{width:min(390px,90vw);padding:22px;background:linear-gradient(145deg,#182b38,#0b151e);border:2px solid #d9b66c;border-radius:18px;box-shadow:0 18px 55px #000b;text-align:center}
+  #elevatorCard h2{margin:0 0 6px;color:#ffe0a0}#elevatorCard p{margin:0 0 16px;color:#c8d4dc;font-size:13px}
+  #elevatorFloors{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}#elevatorFloors button{padding:12px 6px;border:1px solid #8da3ad;border-radius:9px;background:#294453;color:white;font-weight:700;cursor:pointer}#elevatorFloors button.current{background:#b58b43;color:#17130b}#elevatorFloors button:disabled{opacity:.45}
+  #elevatorCancel{margin-top:14px;padding:9px 22px;border:1px solid #c6a66b;border-radius:8px;background:#202d35;color:#fff;cursor:pointer}
+  #elevatorRide{position:absolute;inset:0;z-index:36;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,#0a1119,#25333d 48%,#0a1119);color:#ffe3a6;text-align:center}
+  #elevatorRide strong{display:block;font-size:36px;margin:8px}#elevatorRide span{font-size:14px;color:#d5e0e5}#elevatorDoors{width:150px;height:180px;margin:0 auto 18px;border:5px solid #82949b;border-radius:8px;display:flex;overflow:hidden;background:#111}#elevatorDoors i{display:block;width:50%;height:100%;background:linear-gradient(90deg,#52636b,#a6b1b4,#58666b);transition:transform .3s}#elevatorDoors.open i:first-child{transform:translateX(-100%)}#elevatorDoors.open i:last-child{transform:translateX(100%)}
   #errorBox {
     position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
     background: rgba(180,0,0,0.92); color: #fff; padding: 12px 20px; border-radius: 8px;
@@ -176,7 +183,7 @@
     <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
   </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
 </div>
-<div id="errorBox"></div>
+<div id="elevatorMenu" role="dialog" aria-modal="true"><div id="elevatorCard"><h2>Ascenseur</h2><p>Choisis l’étage où tu souhaites aller.</p><div id="elevatorFloors"></div><button id="elevatorCancel">Annuler</button></div></div><div id="elevatorRide"><div><div id="elevatorDoors"><i></i><i></i></div><span>Ascenseur en déplacement</span><strong id="elevatorCounter">RDC</strong><span id="elevatorDestination">Destination : —</span></div></div><div id="errorBox"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -252,6 +259,7 @@ let player = null;
 let npcs = [], vehicles = [], trafficLights = [], obstacles = [], doors = [], poi = [], particles = [], parks = [], allBuildings = [];
 let interiors = {};
 let currentInterior = null, currentFloor = 0;
+let elevatorTravel = null, elevatorMenuOpen = false;
 let keys = {};
 let cameraYaw = 0, cameraPitch = 0.18, cameraZoom = 1, cameraDrag = false, lastMouseX = 0, lastMouseY = 0;
 let isLocked = false, gameStarted = false, worldReady = false;
@@ -321,6 +329,7 @@ function init() {
   window.addEventListener('keyup', function(e) { keys[e.key.toLowerCase()] = false; });
   document.getElementById('closeMapBtn').addEventListener('click', closeBigMap);
   document.getElementById('phoneClose').addEventListener('click', closePhone);
+  document.getElementById('elevatorCancel').addEventListener('click',closeElevatorMenu);
   document.querySelectorAll('.phoneApp').forEach(btn=>btn.addEventListener('click',()=>openPhoneApp(btn.dataset.app)));
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUpCamera);
@@ -345,16 +354,20 @@ function onKeyDown(e) {
   keys[k] = true;
   if (e.repeat) return;
   if (k === 'escape') {
-    if (phoneOpen) closePhone();
+    if(elevatorMenuOpen)closeElevatorMenu();
     if (phoneOpen) closePhone();
     if (mapOpen) closeBigMap();
     if (document.pointerLockElement) document.exitPointerLock();
   }
-  if (k === 'f' && worldReady && currentInterior && !dialogOpen && !panelOpen && !mapOpen) {
+  if (k === 'f' && worldReady && currentInterior && !dialogOpen && !panelOpen && !mapOpen && !elevatorTravel && !elevatorMenuOpen) {
     interactWithFurniture(); keys['f'] = false; return;
   }
   if (k === 'e' && worldReady && !dialogOpen && !panelOpen && !mapOpen) {
+    if(elevatorMenuOpen){closeElevatorMenu();keys['e']=false;return;}
+    if(elevatorTravel){keys['e']=false;return;}
     if (currentInterior) {
+      const nearby=findNearbyFurniture();
+      if(nearby&&nearby.type==='elevator'){openElevatorMenu();keys['e']=false;return;}
       // La sortie est utilisable uniquement à proximité de la porte de la maison.
       const gp = currentInterior.group.position;
       const exitX = gp.x;
@@ -1602,7 +1615,7 @@ function generateInterior(id, bw, bd, numFloors, wallColor, style) {
   group.visible = false;
   scene.add(group);
   return {
-    group, floors, doorId: id, floorH, roomW, roomD, numFloors, currentFloor: 0, interactables, colliders
+    group, floors, doorId: id, floorH, roomW, roomD, numFloors, currentFloor: 0, interactables, colliders, style
   };
 }
 
@@ -2137,7 +2150,7 @@ function enterBuilding(door) {
   scene.background=new THREE.Color(0x25313a);scene.fog=null;
   if(interiorAmbientLight)interiorAmbientLight.intensity=.72;
   document.getElementById('interiorHint').style.display='block';
-  document.getElementById('interiorHint').textContent=(door.buildingType?'🏬 '+door.buildingName+' · F : utiliser / interagir · E près de la porte : sortir':door.buildingName&&door.buildingName!=='Maison d’Abidjan'?'🏢 '+door.buildingName+' · F : utiliser / ascenseur · Maj + F : descendre · E près de la porte : sortir':"🏠 Maison · F : utiliser / déplacer un meuble · Lit : dormir · Douche : se laver · E près de la porte : sortir");
+  document.getElementById('interiorHint').textContent=(door.buildingType?'🏬 '+door.buildingName+' · F : utiliser / interagir · E près de la porte : sortir':door.buildingName&&door.buildingName!=='Maison d’Abidjan'?'🏢 '+door.buildingName+' · E : ascenseur / choisir étage · F : meubles · E près de la porte : sortir':"🏠 Maison · F : utiliser / déplacer un meuble · Lit : dormir · Douche : se laver · E près de la porte : sortir");
   document.getElementById('etage').textContent=interior.numFloors>1?'Immeuble · Hall / Rez-de-chaussée':(door.buildingType?'Magasin · Rez-de-chaussée':'Maison · Rez-de-chaussée');
   showMessage('Bienvenue chez toi. Salon, cuisine, chambre et salle de bain.');
 }
@@ -2182,21 +2195,39 @@ function dropHeldFurniture(){
   heldFurniture.position.y=Math.max(.12,heldFurniture.position.y-1.0);heldFurniture=null;
   showMessage('Objet reposé.');
 }
+function openElevatorMenu(){
+  if(!currentInterior||currentInterior.numFloors<2||elevatorTravel)return;
+  const wrap=document.getElementById('elevatorMenu'),list=document.getElementById('elevatorFloors');list.innerHTML='';
+  for(let floor=0;floor<currentInterior.numFloors;floor++){const b=document.createElement('button');b.type='button';b.className=floor===currentFloor?'current':'';b.textContent=floor===0?'RDC':'Étage '+floor;b.disabled=floor===currentFloor;b.addEventListener('click',()=>startElevatorTravel(floor));list.appendChild(b);}
+  elevatorMenuOpen=true;wrap.style.display='flex';if(document.exitPointerLock)document.exitPointerLock();
+}
+function closeElevatorMenu(){elevatorMenuOpen=false;const el=document.getElementById('elevatorMenu');if(el)el.style.display='none';}
+function startElevatorTravel(target){
+  if(!currentInterior||target===currentFloor||elevatorTravel)return;closeElevatorMenu();
+  elevatorTravel={from:currentFloor,to:target,elapsed:0,duration:Math.max(1.5,Math.abs(target-currentFloor)*.72)};
+  document.getElementById('elevatorRide').style.display='flex';document.getElementById('elevatorDoors').classList.remove('open');
+  document.getElementById('elevatorCounter').textContent=currentFloor===0?'RDC':'Étage '+currentFloor;
+  document.getElementById('elevatorDestination').textContent='Destination : '+(target===0?'Rez-de-chaussée':'Étage '+target);
+}
+function updateElevatorTravel(delta){
+  if(!elevatorTravel)return;const t=elevatorTravel;t.elapsed+=delta;const p=Math.min(1,t.elapsed/t.duration),e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+  const level=Math.round(t.from+(t.to-t.from)*e);document.getElementById('elevatorCounter').textContent=level===0?'RDC':'Étage '+level;
+  if(p>=1){currentFloor=t.to;currentInterior.currentFloor=t.to;currentInterior.floors.forEach((f,i)=>f.visible=i===t.to);player.position.y=t.to*currentInterior.floorH+.02;movementState.onGround=true;movementState.yVelocity=0;
+    document.getElementById('etage').textContent='Immeuble · '+(t.to===0?'Rez-de-chaussée':'Étage '+t.to);document.getElementById('floorHint').textContent='Étage '+t.to+' · Tu peux maintenant rejoindre ton logement';document.getElementById('floorHint').style.display='block';
+    document.getElementById('elevatorDoors').classList.add('open');showMessage('Ding ! Arrivée à '+(t.to===0?'au rez-de-chaussée':'l’étage '+t.to)+'.');setTimeout(()=>{document.getElementById('elevatorRide').style.display='none';},650);elevatorTravel=null;
+  }
+}
+
 function interactWithFurniture(){
+  if(elevatorTravel||elevatorMenuOpen)return;
   if(heldFurniture){dropHeldFurniture();return;}
   const item=findNearbyFurniture();
   if(!item){showMessage('Approche-toi d’un meuble pour interagir.');return;}
   const gp=currentInterior.group.position;
-  if(item.type==='elevator'){
+  if(item.type==='elevator'){openElevatorMenu();return;}
+  if(false){
     if(currentInterior.numFloors<2){showMessage('Cet immeuble ne possède qu’un seul étage accessible.');return;}
-    const down=!!keys['shift'];let target=down?currentFloor-1:currentFloor+1;
-    if(target>=currentInterior.numFloors)target=0;if(target<0)target=currentInterior.numFloors-1;
-    currentFloor=target;currentInterior.currentFloor=target;
-    currentInterior.floors.forEach((floor,i)=>floor.visible=i===target);
-    player.position.y=target*currentInterior.floorH+.02;movementState.onGround=true;movementState.yVelocity=0;
-    document.getElementById('etage').textContent='Immeuble · '+(target===0?'Hall / Rez-de-chaussée':'Étage '+target);
-    document.getElementById('floorHint').textContent='Ascenseur : étage '+target+' / '+(currentInterior.numFloors-1)+' · Maj + F : descendre · F : monter';document.getElementById('floorHint').style.display='block';
-    showMessage('Ascenseur : arrivée au '+(target===0?'rez-de-chaussée':' '+target+'e étage')+'.');return;
+    return;
   }
   if(item.type==='assoir'||item.type==='dormir'){
     playerShowering=false;playerSitting=true;item.previousType=item.type;item.previousLabel=item.label;player.position.x=gp.x+item.x;player.position.z=gp.z+item.z+0.75;
@@ -2231,7 +2262,7 @@ function interactWithFurniture(){
 }
 
 function updatePlayer(delta) {
-  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen) return;
+  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen || elevatorMenuOpen || elevatorTravel) return;
   // Comme dans Les Sims : une fois assis/allongé, le personnage reste immobilisé
   // jusqu'à l'action explicite « Se relever » avec F.
   if(playerSitting){ keys['z']=keys['w']=keys['q']=keys['a']=keys['s']=keys['d']=keys['arrowup']=keys['arrowdown']=keys['arrowleft']=keys['arrowright']=keys['shift']=false; return; }
@@ -2334,7 +2365,7 @@ function updatePlayer(delta) {
 
   if (currentInterior) {
     nearFurniture=findNearbyFurniture();
-    document.getElementById('info').textContent = nearFurniture ? 'F · '+(heldFurniture?'Reposer '+(heldFurniture.userData.label||'objet'):'Interagir avec '+nearFurniture.label)+' · E · Sortir' : (heldFurniture?'Déplace-toi puis F pour reposer l’objet':'Approche-toi d’un meuble · F interagir · E sortir');
+    document.getElementById('info').textContent = nearFurniture ? (nearFurniture.type==='elevator'?'E · Choisir un étage':'F · '+(heldFurniture?'Reposer '+(heldFurniture.userData.label||'objet'):'Interagir avec '+nearFurniture.label))+' · E · Sortir' : (heldFurniture?'Déplace-toi puis F pour reposer l’objet':'Approche-toi d’un meuble · F interagir · E sortir');
     return;
   }
 
@@ -2629,6 +2660,7 @@ function animate() {
   const delta = Math.min(clock.getDelta(), 0.1);
   try {
     updateLifeSimulation(delta);
+    updateElevatorTravel(delta);
     updatePlayer(delta);
     updateNPCs(delta);
     updateVehicles(delta);
