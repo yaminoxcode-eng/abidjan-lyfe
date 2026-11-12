@@ -864,6 +864,7 @@ function buildOSMBuildings(ways,nodes) {
     if(tag.shop||['retail','commercial','supermarket','kiosk'].includes(tag.building)||['restaurant','cafe','bank','fast_food'].includes(tag.amenity)){
       addPOI(cx,cz,'commerce',tag.name||tag.shop||tag.amenity||'Commerce',tag);
       addOSMStorefront(pts,tag);
+      createOSMStoreEntrance(pts,tag,h,col);
     }
     const residential = ['house','residential','detached','semidetached_house','terrace','apartments','bungalow','dormitory'].includes(tag.building) || tag.building==='yes' && !tag.amenity && !tag.shop;
     if(residential && residentialDoorCount < 70 && ww >= 6 && dd >= 6 && residentialDoorCount % 2 === 0) {
@@ -890,6 +891,36 @@ function buildOSMBuildings(ways,nodes) {
     facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;scene.add(facadeMesh);
   }
   console.info('Bâtiments OSM regroupés :',count);
+}
+
+function createOSMStoreEntrance(pts,tags,height,color){
+  if(!pts||pts.length<4||doors.length>=58)return;
+  const shop=String(tags.shop||tags.amenity||tags.building||'').toLowerCase();
+  let kind='supermarket';
+  if(['furniture','interior_decoration'].includes(shop))kind='furniture';
+  else if(['clothes','shoes','fashion'].includes(shop))kind='clothes';
+  else if(['electronics','computer','mobile_phone'].includes(shop))kind='electronics';
+  else if(['supermarket','convenience','greengrocer','butcher','bakery'].includes(shop))kind='supermarket';
+  else if(['restaurant','cafe','fast_food','bar'].includes(shop))kind='supermarket';
+  const xs=pts.map(p=>p.x),zs=pts.map(p=>p.z),cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
+  let edge=null,best=-Infinity;
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length],mx=(a.x+b.x)/2,mz=(a.z+b.z)/2;
+    const dx=mx-cx,dz=mz-cz,len=Math.hypot(dx,dz)||1,score=Math.hypot(b.x-a.x,b.z-a.z);
+    if(score>best){best=score;edge={mx,mz,nx:dx/len,nz:dz/len};}
+  }
+  if(!edge||best<4)return;
+  const {mx,mz,nx,nz}=edge,doorX=mx+nx*.15,doorZ=mz+nz*.15,id='store'+doors.length;
+  const group=new THREE.Group(),frame=new THREE.Mesh(new THREE.BoxGeometry(1.75,2.5,.2),new THREE.MeshLambertMaterial({color:0xdbc39b}));
+  const door=new THREE.Mesh(new THREE.BoxGeometry(1.15,2.15,.09),new THREE.MeshLambertMaterial({color:0x40515a}));door.position.y=1.12;group.add(frame,door);
+  const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=128;
+  const ctx=signCanvas.getContext('2d');ctx.fillStyle='#173c35';ctx.fillRect(0,0,512,128);ctx.fillStyle='#fff1d0';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(String(tags.name||shop||'COMMERCE').slice(0,24).toUpperCase(),256,78);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.6,.9),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signCanvas),side:THREE.DoubleSide}));sign.position.set(0,2.95,.12);group.add(sign);
+  group.position.set(doorX,terrainHeight(doorX,doorZ),doorZ);group.rotation.y=Math.atan2(nx,nz);scene.add(group);
+  const idFloor=Math.max(1,Math.min(3,Math.floor(height/4)));
+  const style='store_'+kind;
+  interiors[id]=generateInterior(id,Math.max(12,Math.min(26,Math.max(...xs)-Math.min(...xs)+2)),Math.max(12,Math.min(26,Math.max(...zs)-Math.min(...zs)+2)),1,color,style);
+  doors.push({x:doorX,z:doorZ,id,rot:group.rotation.y,normal:new THREE.Vector3(nx,0,nz),group,home:true,buildingName:tags.name||shop||'Magasin',buildingType:style});
 }
 
 function addOSMStorefront(pts,tags){
@@ -941,9 +972,9 @@ function createOSMResidentialEntrance(pts, tags, height, color) {
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.2,.72),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signCanvas),transparent:true,side:THREE.DoubleSide}));
   sign.position.set(0,2.85,.08);doorGroup.add(sign);
   doorGroup.position.set(doorX,terrainHeight(doorX,doorZ),doorZ);doorGroup.rotation.y=Math.atan2(normal.x,normal.z);scene.add(doorGroup);
+  const floors=tags.building==='apartments'?Math.max(2,Math.min(8,Math.floor(height/3.4))):1;
   const style=tags.building==='apartments'?'resident':'villa';
-  const index=doors.length;
-  interiors[id]=generateInterior(id,Math.max(12,Math.min(18,Math.max(...xs)-Math.min(...xs)+3)),Math.max(12,Math.min(18,Math.max(...zs)-Math.min(...zs)+3)),1,color,style);
+  interiors[id]=generateInterior(id,Math.max(12,Math.min(24,Math.max(...xs)-Math.min(...xs)+3)),Math.max(12,Math.min(24,Math.max(...zs)-Math.min(...zs)+3)),floors,color,style);
   doors.push({x:doorX,z:doorZ,id,rot:doorGroup.rotation.y,normal,group:doorGroup,home:true,buildingName:tags.name||'Maison d’Abidjan'});
 }
 
@@ -1247,8 +1278,8 @@ function addDoor(x, z, rot, bx, bz, bw, bd, bh, buildingColor, style) {
 function generateInterior(id, bw, bd, numFloors, wallColor, style) {
   const group = new THREE.Group();
   // Pièce proportionnelle au bâtiment extérieur (cohérence)
-  const roomW = Math.max(12, Math.min(bw + 1, 18));
-  const roomD = Math.max(12, Math.min(bd + 1, 18));
+  const roomW = Math.max(12, Math.min(bw + 1, 26));
+  const roomD = Math.max(12, Math.min(bd + 1, 26));
   const floorH = 3.45;
   const floors = [];
   const interactables = [];
@@ -1358,11 +1389,60 @@ function generateInterior(id, bw, bd, numFloors, wallColor, style) {
         const etagere = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 0.35), new THREE.MeshLambertMaterial({ color: 0xa1887f }));
         etagere.position.set(-roomW/2 + 1.5 + i * 1.5, 0.9, roomD/2 - 1.2); floorGroup.add(etagere);
       }
+    } else if (style.startsWith('store_')) {
+      const mat=c=>new THREE.MeshLambertMaterial({color:c});
+      const box=(w,h,d,x,y,z,c,collide=true)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;floorGroup.add(m);if(collide)colliders.push({x,z,w,d});return m;};
+      const kind=style.slice(6),wood=0x9b704b,metal=0x59636a;
+      // Comptoir commun, placé au fond pour garder un chemin central dégagé.
+      box(Math.min(5,roomW*.48),1.05,.85,0,.55,-roomD*.36,0x765039);
+      if(kind==='furniture'){
+        // Magasin de meubles : salon témoin, lits et rangées de mobilier.
+        for(const z of [-roomD*.16,roomD*.22]){
+          box(3.2,.7,1.05,-roomW*.25,.4,z,0x54718a);
+          box(1.4,.48,1.3,roomW*.23,.3,z,0x8b6547);
+          box(1.7,1.65,.55,roomW*.36,.83,z,0xb18b63);
+        }
+        box(2.3,.35,2.5,0,.2,roomD*.36,0xe3d4c4);
+      }else if(kind==='clothes'){
+        // Portants, cintres stylisés et mannequins.
+        for(const x of [-roomW*.3,0,roomW*.3]){
+          box(2.8,.12,.18,x,1.7,-roomD*.05,metal,false);
+          for(let i=0;i<5;i++){const shirt=box(.34,.65,.08,x-1.05+i*.52,1.2,-roomD*.05,[0xc84f45,0x3976a5,0xe0b84f,0x5c8d63,0x8c6b9f][i],false);shirt.rotation.y=(i%2)*.08;}
+        }
+        for(const x of [-roomW*.28,roomW*.28]){box(.42,1.55,.42,x,.78,roomD*.27,0xd6b18b,false);box(.72,.35,.48,x,1.6,roomD*.27,0x4f6d87,false);}
+      }else if(kind==='electronics'){
+        for(let row=0;row<2;row++)for(let i=0;i<3;i++){
+          const x=-roomW*.32+i*roomW*.32,z=-roomD*.08+row*roomD*.32;
+          box(1.9,1.35,.5,x,.68,z,0x343b42);
+          box(1.55,.88,.045,x,1.15,z-.27,[0x263e56,0x263e56,0x365d66][i],false);
+        }
+      }else{
+        // Superette / alimentation : rayons, étals, frigos et produits colorés.
+        for(const x of [-roomW*.32,roomW*.32]){
+          for(const z of [-roomD*.12,roomD*.18]){
+            box(1.15,1.8,3.0,x,.9,z,wood);
+            for(let shelf=0;shelf<3;shelf++)for(let item=0;item<4;item++){
+              const product=box(.19,.24,.22,x-.42+item*.28,.55+shelf*.48,z-1.05+(item%2)*.28,[0xd34e42,0xe2b747,0x4e9871,0x4b79a7][(item+shelf)%4],false);
+            }
+          }
+        }
+        box(1.5,1.9,.85,roomW*.18,.95,-roomD*.25,0x9bb9bd);
+      }
+      // Éclairage et enseigne intérieure adaptés au type de commerce.
+      const shopSign=new THREE.Mesh(new THREE.BoxGeometry(Math.min(5,roomW*.5),.34,.12),mat(kind==='furniture'?0x7b543b:kind==='clothes'?0x8c527e:kind==='electronics'?0x315f88:0x4f8a65));
+      shopSign.position.set(0,2.65,-roomD*.46);floorGroup.add(shopSign);
     } else if (style === 'plateau') {
       const bureau = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.7, 1.0), new THREE.MeshLambertMaterial({ color: 0x5d4037 }));
       bureau.position.set(-1.2, 0.4, -0.5); floorGroup.add(bureau);
       const chaise = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), new THREE.MeshLambertMaterial({ color: 0x37474f }));
       chaise.position.set(-1.2, 0.35, 0.5); floorGroup.add(chaise);
+    } else if (style === 'resident') {
+      // Hall d'immeuble : accueil, boîtes aux lettres et espace d'attente.
+      const hallMat=c=>new THREE.MeshLambertMaterial({color:c});
+      const desk=new THREE.Mesh(new THREE.BoxGeometry(Math.min(4,roomW*.45),1.05,.9),hallMat(0x76513b));desk.position.set(0,.55,-roomD*.28);floorGroup.add(desk);colliders.push({x:0,z:-roomD*.28,w:Math.min(4,roomW*.45),d:.9});
+      for(let i=0;i<5;i++){const mail=new THREE.Mesh(new THREE.BoxGeometry(.52,.42,.38),hallMat(0x83949a));mail.position.set(-roomW*.35+i*.72,1.05,roomD*.28);floorGroup.add(mail);}
+      const sofa=new THREE.Mesh(new THREE.BoxGeometry(2.6,.65,.82),hallMat(0x526e86));sofa.position.set(-roomW*.25,.38,roomD*.05);floorGroup.add(sofa);colliders.push({x:-roomW*.25,z:roomD*.05,w:2.6,d:.82});
+      const lobbyLight=new THREE.PointLight(0xffd8a0,.9,20);lobbyLight.position.set(0,2.8,0);floorGroup.add(lobbyLight);
     } else {
       // Maison aménagée : salon, cuisine, chambre et salle d'eau, dans un plan lisible façon Sims.
       const mat=(c)=>new THREE.MeshLambertMaterial({color:c});
@@ -1490,6 +1570,15 @@ function generateInterior(id, bw, bd, numFloors, wallColor, style) {
     const light = new THREE.PointLight(0xffd166, 0.75, 18);
     light.position.set(0, 2.7, 0); floorGroup.add(light);
 
+    if (style === 'resident' && numFloors > 1) {
+      // Ascenseur visible à chaque étage, avec porte et bouton d'appel.
+      const liftMat=new THREE.MeshLambertMaterial({color:0x9ba8ad});
+      const liftFrame=new THREE.Mesh(new THREE.BoxGeometry(2.15,2.75,.18),liftMat);liftFrame.position.set(roomW/2-1.35,1.38,-roomD/2+1.7);floorGroup.add(liftFrame);
+      const liftDoor=new THREE.Mesh(new THREE.BoxGeometry(.92,2.45,.08),new THREE.MeshLambertMaterial({color:0x50616a}));liftDoor.position.set(roomW/2-1.35,1.25,-roomD/2+1.58);floorGroup.add(liftDoor);
+      const liftButton=new THREE.Mesh(new THREE.BoxGeometry(.18,.36,.08),new THREE.MeshBasicMaterial({color:0x4bc5a2}));liftButton.position.set(roomW/2-2.15,1.35,-roomD/2+1.55);floorGroup.add(liftButton);
+      colliders.push({x:roomW/2-1.35,z:-roomD/2+1.7,w:2.15,d:.45});
+      interactables.push({x:roomW/2-1.35,z:-roomD/2+2.8,type:'elevator',label:'Ascenseur',floor:f});
+    }
     if (numFloors > 1) {
       const stairMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
       if (f < numFloors - 1) {
@@ -2048,8 +2137,8 @@ function enterBuilding(door) {
   scene.background=new THREE.Color(0x25313a);scene.fog=null;
   if(interiorAmbientLight)interiorAmbientLight.intensity=.72;
   document.getElementById('interiorHint').style.display='block';
-  document.getElementById('interiorHint').textContent="🏠 Maison · F : utiliser / déplacer un meuble · Lit : dormir · Douche : se laver · E près de la porte : sortir";
-  document.getElementById('etage').textContent='Maison · Rez-de-chaussée';
+  document.getElementById('interiorHint').textContent=(door.buildingType?'🏬 '+door.buildingName+' · F : utiliser / interagir · E près de la porte : sortir':door.buildingName&&door.buildingName!=='Maison d’Abidjan'?'🏢 '+door.buildingName+' · F : utiliser / ascenseur · Maj + F : descendre · E près de la porte : sortir':"🏠 Maison · F : utiliser / déplacer un meuble · Lit : dormir · Douche : se laver · E près de la porte : sortir");
+  document.getElementById('etage').textContent=interior.numFloors>1?'Immeuble · Hall / Rez-de-chaussée':(door.buildingType?'Magasin · Rez-de-chaussée':'Maison · Rez-de-chaussée');
   showMessage('Bienvenue chez toi. Salon, cuisine, chambre et salle de bain.');
 }
 
@@ -2098,6 +2187,17 @@ function interactWithFurniture(){
   const item=findNearbyFurniture();
   if(!item){showMessage('Approche-toi d’un meuble pour interagir.');return;}
   const gp=currentInterior.group.position;
+  if(item.type==='elevator'){
+    if(currentInterior.numFloors<2){showMessage('Cet immeuble ne possède qu’un seul étage accessible.');return;}
+    const down=!!keys['shift'];let target=down?currentFloor-1:currentFloor+1;
+    if(target>=currentInterior.numFloors)target=0;if(target<0)target=currentInterior.numFloors-1;
+    currentFloor=target;currentInterior.currentFloor=target;
+    currentInterior.floors.forEach((floor,i)=>floor.visible=i===target);
+    player.position.y=target*currentInterior.floorH+.02;movementState.onGround=true;movementState.yVelocity=0;
+    document.getElementById('etage').textContent='Immeuble · '+(target===0?'Hall / Rez-de-chaussée':'Étage '+target);
+    document.getElementById('floorHint').textContent='Ascenseur : étage '+target+' / '+(currentInterior.numFloors-1)+' · Maj + F : descendre · F : monter';document.getElementById('floorHint').style.display='block';
+    showMessage('Ascenseur : arrivée au '+(target===0?'rez-de-chaussée':' '+target+'e étage')+'.');return;
+  }
   if(item.type==='assoir'||item.type==='dormir'){
     playerShowering=false;playerSitting=true;item.previousType=item.type;item.previousLabel=item.label;player.position.x=gp.x+item.x;player.position.z=gp.z+item.z+0.75;
     player.position.y=.02;player.rotation.y=Math.PI;
