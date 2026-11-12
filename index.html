@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Abidjan Life — Ville ouverte & simulation de vie V1.0</title>
+<title>Abidjan Life — Ville ouverte & simulation de vie V1.1</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -25,7 +25,7 @@
   #clock { position: absolute; top: 10px; right: 12px; font-size: 18px; font-weight: 700; text-shadow: 1px 1px 3px #000; z-index: 10; pointer-events: none; }
   #quartier { position: absolute; top: 42px; right: 12px; color: #ffd166; font-size: 15px; font-weight: 700; text-shadow: 1px 1px 3px #000; z-index: 10; pointer-events: none; }
   #etage { position: absolute; top: 64px; right: 12px; color: #1abc9c; font-size: 13px; font-weight: 600; text-shadow: 1px 1px 3px #000; z-index: 10; pointer-events: none; }
-  #minimap { position: absolute; bottom: 10px; right: 10px; width: 168px; height: 168px; border: 2px solid #ffd166; border-radius: 8px; background: rgba(0,0,0,0.55); z-index: 10; cursor: pointer; }
+  #minimap { display:none!important; }
   #info { position: absolute; bottom: 10px; left: 12px; font-size: 13px; line-height: 1.45; text-shadow: 1px 1px 3px #000; z-index: 10; pointer-events: none; max-width: 42vw; }
   #message {
     position: absolute; top: 52%; left: 50%; transform: translate(-50%,-50%);
@@ -108,7 +108,7 @@
   #exploreHud{position:absolute;top:14px;left:14px;z-index:10;display:flex;flex-direction:column;gap:4px;padding:10px 14px;background:rgba(8,16,24,.78);border-left:3px solid #f2b84b;border-radius:5px;text-shadow:1px 2px 3px #000;pointer-events:none}
   #exploreHud strong{font-size:15px;letter-spacing:2px;color:#ffd166} #exploreHud span{font-size:12px;color:#fff}
   #mapStatus{color:#a9d6c2!important} #info{bottom:16px;left:16px;padding:8px 12px;background:rgba(8,16,24,.7);border-radius:5px}
-  #minimap{width:190px;height:190px;border-radius:8px;opacity:.92}
+  #minimap{display:none!important}
 
   /* Interface de vie quotidienne — HUD léger, lisible sur PC et mobile */
   #lifeHud{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:11;display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(8,16,28,.88);border:1px solid rgba(255,209,102,.75);border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.25);pointer-events:none;max-width:calc(100vw - 300px)}
@@ -122,7 +122,16 @@
   #socialFill{background:linear-gradient(90deg,#a36bd8,#f28bb8)}
   #moneyLabel{font-size:12px;font-weight:800;color:#83e5b0;white-space:nowrap}
   #lifeClock{position:absolute;top:12px;right:14px;z-index:11;padding:7px 10px;border-radius:8px;background:rgba(8,16,28,.8);font-weight:800;font-size:16px;color:#ffe2a0;text-shadow:1px 2px 3px #000;pointer-events:none}
-  @media(max-width:760px){#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
+  #phone{position:absolute;right:22px;bottom:24px;width:300px;max-width:calc(100vw - 28px);height:510px;max-height:78vh;z-index:24;display:none;flex-direction:column;padding:18px;border:7px solid #20252b;border-radius:32px;background:linear-gradient(155deg,#162b3b,#08121e 68%);box-shadow:0 18px 60px #000b;color:#fff}
+  #phone.open{display:flex}#phoneTop{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#ffe0a0;margin:4px 2px 18px}
+  #phoneClock{font-size:13px;color:#b9d6e7}#phoneClose{border:0;border-radius:50%;width:30px;height:30px;background:#a83b36;color:white;font-size:17px}
+  #phoneScreen{flex:1;border-radius:18px;padding:14px;background:linear-gradient(145deg,#31546b,#182a3b);overflow:auto}
+  #phoneScreen h3{margin:2px 0 14px;font-size:18px}#phoneApps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .phoneApp{min-height:78px;border:1px solid #ffffff30;border-radius:15px;background:#ffffff18;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:11px;cursor:pointer}
+  .phoneApp span{font-size:26px}.phoneApp:active{background:#ffffff38}
+  #phoneHome{width:86px;height:5px;border-radius:5px;background:#dce7ed;margin:12px auto 0}
+  #phoneAppContent{display:none}#phoneAppContent button{border:1px solid #f4d28b;background:#243e52;color:white;border-radius:9px;padding:9px 12px;margin:5px 3px}
+  @media(max-width:760px){#phone{right:10px;bottom:10px;width:290px;height:490px}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
 </style>
 </head>
@@ -137,7 +146,7 @@
   <button id="startBtn">Commencer l'aventure</button>
   <div class="controls">
     <b>ZQSD / WASD</b> déplacement · <b>Shift</b> courir · <b>Espace</b> sauter<br>
-    <b>E</b> entrer/sortir des maisons · <b>Souris</b> caméra · <b>Échap</b> libérer la souris · <b>M</b> mini-carte · <b>P</b> carte géographique
+    <b>E</b> entrer/sortir des maisons · <b>Souris</b> caméra · <b>Échap</b> libérer la souris · <b>M</b> téléphone · localisation dans l’application Carte géographique
   </div>
 </div>
 
@@ -148,11 +157,25 @@
   <div class="lifeNeed"><label>Social</label><div class="lifeTrack"><div id="socialFill" class="lifeFill"></div></div></div>
   <span id="moneyLabel">50 FCFA</span>
 </div><div id="lifeClock">08:00</div>
-<div id="exploreHud"><strong>ABIDJAN LIFE</strong><span id="quartier">Abidjan</span><span id="mapStatus">Préparation de la ville…</span></div>
-<div id="info">ZQSD · Shift courir · Espace sauter · Souris caméra · Molette zoom · Clic droit glisser · E maison / parler / commerces · K sauvegarder · P carte</div>
+<div id="exploreHud"><strong>ABIDJAN LIFE</strong><span id="quartier">Quartier : Abidjan · Commune : Abidjan</span><span id="mapStatus">Préparation de la ville…</span></div>
+<div id="info">ZQSD · Shift courir · Espace sauter · Souris caméra · Molette zoom · Clic droit glisser · E maison / parler / commerces · K sauvegarder · M téléphone · Localisation dans le téléphone</div>
 <div id="interiorHint"></div><div id="etage"></div><div id="floorHint"></div><div id="message" role="status"></div>
-<canvas id="minimap" width="190" height="190"></canvas>
+
 <div id="bigMap"><div id="leafletMap" aria-label="Carte géographique interactive d’Abidjan"></div><canvas id="bigMapCanvas" width="1100" height="760"></canvas><button class="closeMap" id="closeMapBtn" aria-label="Fermer la carte">✕</button><div class="legend"><div class="leg">Routes réelles OpenStreetMap</div><div class="leg"><div class="dot" style="background:#e7473f"></div>Ta position</div></div></div>
+<div id="phone" aria-label="Téléphone du personnage">
+  <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
+  <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
+    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Localisation</button>
+    <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
+    <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button>
+    <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
+    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
+    <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
+    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button>
+    <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
+    <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
+  </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
+</div>
 <div id="errorBox"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -233,6 +256,7 @@ let keys = {};
 let cameraYaw = 0, cameraPitch = 0.18, cameraZoom = 1, cameraDrag = false, lastMouseX = 0, lastMouseY = 0;
 let isLocked = false, gameStarted = false, worldReady = false;
 let minimapCtx = null;
+let phoneOpen = false, districtCheckTimer = 0, lastDistrictKey = '';
 let currentQuartier = 'Abidjan';
 let dialogOpen = false, panelOpen = false, mapOpen = false;
 let nearNPC = null, nearPOI = null, nearDoor = null;
@@ -291,13 +315,13 @@ function init() {
   createPlayer();
   loadLifeProgress();
 
-  minimapCtx = document.getElementById('minimap').getContext('2d');
-
 
   window.addEventListener('resize', onResize);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', function(e) { keys[e.key.toLowerCase()] = false; });
   document.getElementById('closeMapBtn').addEventListener('click', closeBigMap);
+  document.getElementById('phoneClose').addEventListener('click', closePhone);
+  document.querySelectorAll('.phoneApp').forEach(btn=>btn.addEventListener('click',()=>openPhoneApp(btn.dataset.app)));
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUpCamera);
   renderer.domElement.addEventListener('mousedown', onMouseDownCamera);
@@ -321,6 +345,8 @@ function onKeyDown(e) {
   keys[k] = true;
   if (e.repeat) return;
   if (k === 'escape') {
+    if (phoneOpen) closePhone();
+    if (phoneOpen) closePhone();
     if (mapOpen) closeBigMap();
     if (document.pointerLockElement) document.exitPointerLock();
   }
@@ -348,13 +374,8 @@ function onKeyDown(e) {
     interactWithCityLife(); keys['e']=false; return;
   }
   if(k==='k'){saveLifeProgress(true);keys['k']=false;return;}
-  if (k === 'm') {
-    const c = document.getElementById('minimap');
-    c.style.display = c.style.display === 'none' ? 'block' : 'none';
-  }
-  if (k === 'p') {
-    if (mapOpen) closeBigMap(); else openBigMap();
-  }
+  if (k === 'm') { togglePhone(); keys['m']=false; return; }
+  if (k === 'p') { togglePhone(); keys['p']=false; return; }
   if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 }
 
@@ -492,8 +513,9 @@ function generateCity() {
     // Le réseau OSM apporte la géographie réelle ; ce noyau urbain garantit
     // une ville visible et dense autour du point de départ même si OSM est incomplet.
     buildPlayableUrbanCore();
-    if (!npcPopulationCreated) { createNPCs(72); npcPopulationCreated = true; }
-    createAbidjanTraffic(48);
+    if (!npcPopulationCreated) { createNPCs(110); npcPopulationCreated = true; }
+    createAbidjanTraffic(76);
+    buildUrbanTrafficSignals();
     worldReady = true;
     startPlayerAtHome();
   }).catch(err => {
@@ -977,7 +999,7 @@ function createAbidjanTraffic(count){
     const route=buildTrafficRoute(r,forward,10);if(!route.length)continue;
     const first=route[0],len=Math.hypot(first.b.x-first.a.x,first.b.z-first.a.z)||1;
     const progress=(forward?t:1-t)*len;
-    const roll=Math.random(),type=roll<.22?'gbaka':roll<.40?'taxi':roll<.56?'woro':roll<.70?'moto':roll<.79?'bus':'voiture';
+    const roll=Math.random(),type=roll<.19?'gbaka':roll<.33?'taxi':roll<.46?'woro':roll<.64?'moto':roll<.72?'bus':roll<.84?'luxe':'voiture';
     const v=createVehicleMesh(type);v.traverse(o=>{if(o.isMesh)o.castShadow=false;});
     v.userData={type:'osmTraffic',route,routeIndex:0,progress,laneOffset:Math.min(1.5,r.width*.16),speed:7+Math.random()*7,wreck:false};
     updateTrafficVehiclePose(v);scene.add(v);vehicles.push(v);
@@ -1056,8 +1078,9 @@ function generateFallbackDistrict(){
     }
   });
   const spawn={x:-350,z:-120};player.position.set(spawn.x,terrainHeight(spawn.x,spawn.z)+.02,spawn.z);
-  if(!npcPopulationCreated){createNPCs(36);npcPopulationCreated=true;}
-  createAbidjanTraffic(20);
+  if(!npcPopulationCreated){createNPCs(90);npcPopulationCreated=true;}
+  createAbidjanTraffic(52);
+  buildUrbanTrafficSignals();
 }
 function distancePointSegment(px,pz,a,b){const dx=b.x-a.x,dz=b.z-a.z,l2=dx*dx+dz*dz||1;const t=Math.max(0,Math.min(1,((px-a.x)*dx+(pz-a.z)*dz)/l2));return Math.hypot(px-(a.x+t*dx),pz-(a.z+t*dz));}
 
@@ -1808,7 +1831,7 @@ function createVehicleMesh(type) {
     const windows=new THREE.Mesh(new THREE.BoxGeometry(2.35,.82,6.9),glassMat);windows.position.set(0,2.25,-.2);g.add(windows);
     addWheel(-1.08,.42,2.65,.43,.25);addWheel(1.08,.42,2.65,.43,.25);addWheel(-1.08,.42,-2.65,.43,.25);addWheel(1.08,.42,-2.65,.43,.25);
   } else {
-    const colors = [0xe74c3c, 0x3498db, 0xf1c40f, 0x2ecc71, 0xffffff, 0x34495e];
+    const colors = type==='luxe' ? [0x101820,0xc0c0c0,0x172b4d,0x6d1d2c,0xf2f2ed,0x9b8b62] : [0xe74c3c, 0x3498db, 0xf1c40f, 0x2ecc71, 0xffffff, 0x34495e];
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 4), new THREE.MeshLambertMaterial({ color: colors[Math.floor(Math.random() * colors.length)] }));
     body.position.y = 0.8; body.castShadow = true; g.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.7, 2), new THREE.MeshLambertMaterial({ color: 0x222222 }));
@@ -2366,6 +2389,84 @@ function showMessage(text) {
 }
 
 // ============================================================
+// QUARTIERS, COMMUNES ET TÉLÉPHONE DU JOUEUR
+// ============================================================
+const COMMUNE_BY_QUARTIER={Cocody:'Cocody',Plateau:'Le Plateau',Yopougon:'Yopougon',Treichville:'Treichville',Adjamé:'Adjamé',Marcory:'Marcory'};
+function getDistrictNames(){
+  if(!player)return {quartier:'Abidjan',commune:'Abidjan'};
+  const q=getQuartierAt(player.position.x,player.position.z);
+  const nx=player.position.x/(CITY_SIZE/2),nz=player.position.z/(CITY_SIZE/2);
+  const subzones={
+    Cocody:['Angré','Riviera','Deux-Plateaux'],
+    Plateau:['Centre administratif','Indénié','Commerce'],
+    Yopougon:['Niangon','Siporex','Wassakara'],
+    Treichville:['Arras','Biafra','Belleville'],
+    Adjamé:['Liberté','220 logements','Forum'],
+    Marcory:['Zone 4','Résidentiel','Anoumabo']
+  };
+  const list=subzones[q.nom]||['Centre'];
+  const idx=Math.abs(Math.floor((nx*13+nz*17)*3))%list.length;
+  return {quartier:list[idx],commune:COMMUNE_BY_QUARTIER[q.nom]||q.nom,zone:q.nom};
+}
+function updateDistrictHUD(){
+  if(currentInterior||!player)return;
+  const d=getDistrictNames(),key=d.quartier+'|'+d.commune;
+  const el=document.getElementById('quartier');
+  if(el)el.textContent='Quartier : '+d.quartier+' · Commune : '+d.commune;
+  if(lastDistrictKey&&key!==lastDistrictKey)showMessage('📍 '+d.quartier+' · Commune de '+d.commune);
+  lastDistrictKey=key;
+}
+function togglePhone(){if(phoneOpen)closePhone();else openPhone();}
+function openPhone(){
+  if(currentInterior&&mapOpen)return;
+  phoneOpen=true;document.exitPointerLock&&document.exitPointerLock();
+  const p=document.getElementById('phone');if(p)p.classList.add('open');
+}
+function closePhone(){
+  phoneOpen=false;const p=document.getElementById('phone');if(p)p.classList.remove('open');
+  const c=document.getElementById('phoneAppContent');if(c)c.style.display='none';
+  const apps=document.getElementById('phoneApps');if(apps)apps.style.display='grid';
+  if(renderer&&!dialogOpen&&!panelOpen&&!mapOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();
+}
+function openPhoneApp(app){
+  const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
+  if(!apps||!content)return;
+  if(app==='localisation'){closePhone();openBigMap();return;}
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages'};
+  const body={
+    contacts:'Les habitants que tu rencontres seront ajoutés ici.',
+    messages:'Aucun nouveau message pour le moment.',
+    banque:'Solde disponible : '+Math.floor(lifeState.money)+' FCFA.',
+    transport:'Les lignes de gbaka, taxis et bus seront consultables ici.',
+    travail:'Trouve un lieu de travail dans la ville pour gagner de l’argent.',
+    boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
+    agenda:'Tes activités et rendez-vous apparaîtront ici.',
+    parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.'
+  };
+  apps.style.display='none';content.style.display='block';
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>'+labels[app]+'</h3><p>'+body[app]+'</p>';
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';apps.style.display='grid';};
+}
+function buildUrbanTrafficSignals(){
+  if(scene.userData.urbanSignalsBuilt)return;scene.userData.urbanSignalsBuilt=true;
+  const origin=geoToWorld(5.323,-4.02),metal=new THREE.MeshLambertMaterial({color:0x30383c}),black=new THREE.MeshLambertMaterial({color:0x171b1d});
+  const lampMats=[0xe74c3c,0xf1c40f,0x2ecc71].map(c=>new THREE.MeshBasicMaterial({color:c}));
+  for(const [ox,oz] of [[-255,-245],[0,-245],[255,-245],[-255,0],[0,0],[255,0],[-255,245],[0,245],[255,245]]){
+    for(const side of [-1,1]){
+      const x=origin.x+ox+side*11,z=origin.z+oz+side*10,y=terrainHeight(x,z);
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(.09,.13,4.8,7),metal);pole.position.set(x,y+2.4,z);scene.add(pole);
+      const head=new THREE.Mesh(new THREE.BoxGeometry(.48,1.22,.38),black);head.position.set(x,y+4.75,z);scene.add(head);
+      for(let i=0;i<3;i++){const bulb=new THREE.Mesh(new THREE.SphereGeometry(.13,8,7),lampMats[i]);bulb.position.set(x,y+5.16-i*.39,z+.205);scene.add(bulb);}
+    }
+    // Passage piéton : bandes blanches au bord du carrefour.
+    for(let i=-4;i<=4;i++){
+      const stripe=new THREE.Mesh(new THREE.BoxGeometry(.72,.035,5.8),new THREE.MeshBasicMaterial({color:0xece9df}));
+      stripe.position.set(origin.x+ox+i*1.35,terrainHeight(origin.x+ox+i*1.35,origin.z+oz-14)+.12,origin.z+oz-14);scene.add(stripe);
+    }
+  }
+}
+
+// ============================================================
 // CARTES
 // ============================================================
 function worldToGeo(x,z){return {lat:ABIDJAN_ORIGIN.lat-z/110900,lon:ABIDJAN_ORIGIN.lon+x/(110900*Math.cos(ABIDJAN_ORIGIN.lat*Math.PI/180))};}
@@ -2426,7 +2527,8 @@ function animate() {
     updateVehicles(delta);
     updateParticles(delta);
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
-    drawMinimap();
+    districtCheckTimer+=delta;if(districtCheckTimer>.45){districtCheckTimer=0;updateDistrictHUD();}
+    const phoneClock=document.getElementById('phoneClock');if(phoneClock)phoneClock.textContent=String(lifeState.hour).padStart(2,'0')+':'+String(lifeState.minute).padStart(2,'0');
     if(mapOpen && leafletMap && player){const g=worldToGeo(player.position.x,player.position.z);leafletPlayerMarker.setLatLng([g.lat,g.lon]);}
     renderer.render(scene, camera);
   } catch (err) {
