@@ -800,7 +800,6 @@ async function loadAbidjanOSM() {
   osmLoaded = true;
   refreshGameMapRoads();
   if(mapOpen) drawBigMap();
-  refreshGameMapRoads();
   // Place le joueur dans le secteur du Plateau ; le réseau réel reste à l'échelle métrique.
   if (player) {
     const target=geoToWorld(5.323,-4.02);
@@ -812,51 +811,93 @@ async function loadAbidjanOSM() {
   currentQuartier = 'Plateau';
 }
 
+function simplifyRoadPoints(points,tolerance) {
+  if(points.length<3)return points;
+  const keep=new Uint8Array(points.length);keep[0]=1;keep[points.length-1]=1;
+  const stack=[[0,points.length-1]],tol2=tolerance*tolerance;
+  while(stack.length){
+    const pair=stack.pop(),first=pair[0],last=pair[1],a=points[first],b=points[last];
+    const dx=b.x-a.x,dz=b.z-a.z,den=dx*dx+dz*dz;
+    let best=tol2,index=-1;
+    for(let i=first+1;i<last;i++){
+      const p=points[i];let t=den?((p.x-a.x)*dx+(p.z-a.z)*dz)/den:0;
+      t=Math.max(0,Math.min(1,t));
+      const ex=p.x-(a.x+t*dx),ez=p.z-(a.z+t*dz),d=ex*ex+ez*ez;
+      if(d>best){best=d;index=i;}
+    }
+    if(index>=0){keep[index]=1;stack.push([first,index],[index,last]);}
+  }
+  const out=[];for(let i=0;i<points.length;i++)if(keep[i])out.push(points[i]);return out;
+}
+let pedestrianGrid=new Map();
+const PEDESTRIAN_GRID_CELL=140;
+function rebuildPedestrianGrid(){
+  pedestrianGrid.clear();
+  for(const p of pedestrianNodes){
+    const key=Math.floor(p.x/PEDESTRIAN_GRID_CELL)+':'+Math.floor(p.z/PEDESTRIAN_GRID_CELL);
+    let cell=pedestrianGrid.get(key);if(!cell){cell=[];pedestrianGrid.set(key,cell);}cell.push(p);
+  }
+}
+function getNearbyPedestrianNodes(x,z,radius){
+  const out=[],minX=Math.floor((x-radius)/PEDESTRIAN_GRID_CELL),maxX=Math.floor((x+radius)/PEDESTRIAN_GRID_CELL);
+  const minZ=Math.floor((z-radius)/PEDESTRIAN_GRID_CELL),maxZ=Math.floor((z+radius)/PEDESTRIAN_GRID_CELL),r2=radius*radius;
+  for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){
+    const cell=pedestrianGrid.get(gx+':'+gz);if(!cell)continue;
+    for(const p of cell){const dx=p.x-x,dz=p.z-z;if(dx*dx+dz*dz<=r2)out.push(p);}
+  }
+  return out;
+}
 function buildOSMRoads(ways, nodes) {
-  const roadWidths = { motorway: 15, trunk: 13, primary: 11, secondary: 8, tertiary: 6.5, residential: 5.2, unclassified: 4.5, service: 3.2, footway: 1.8, path: 1.5 };
-  const vertices = [], indices = [];
-  function addQuad(a,b,w,y) {
-    const dx=b.x-a.x, dz=b.z-a.z, len=Math.hypot(dx,dz); if(len<0.4)return;
-    const nx=-dz/len*w/2, nz=dx/len*w/2, k=vertices.length/3;
+  const roadWidths={motorway:15,motorway_link:9,trunk:13,trunk_link:8,primary:11,primary_link:7,secondary:8,secondary_link:6,tertiary:6.5,tertiary_link:5,residential:5.2,unclassified:4.5,service:3.2,living_street:5,track:3.2,busway:7};
+  const pedestrianOnly=new Set(['footway','path','pedestrian','steps','cycleway']);
+  const ignored=new Set(['construction','proposed','raceway']);
+  const vertices=[],indices=[];
+  function addQuad(a,b,w,y){
+    const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.4)return;
+    const nx=-dz/len*w/2,nz=dx/len*w/2,k=vertices.length/3;
     const p1={x:a.x+nx,z:a.z+nz},p2={x:a.x-nx,z:a.z-nz},p3={x:b.x-nx,z:b.z-nz},p4={x:b.x+nx,z:b.z+nz};
     vertices.push(p1.x,terrainHeight(p1.x,p1.z)+y,p1.z,p2.x,terrainHeight(p2.x,p2.z)+y,p2.z,p3.x,terrainHeight(p3.x,p3.z)+y,p3.z,p4.x,terrainHeight(p4.x,p4.z)+y,p4.z);
     indices.push(k,k+1,k+2,k,k+2,k+3);
   }
-  ways.forEach(w => {
-    const tag=w.tags.highway, width=roadWidths[tag] || (tag==='living_street'?5:4);
-    const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean);
-    for(let i=1;i<pts.length;i++) {
-      addQuad(pts[i-1],pts[i],width,0.012);
-      osmRoadSegments.push({a:pts[i-1],b:pts[i],width,type:tag,name:w.tags.name||''});
-      if(tag==='footway'||tag==='path'||tag==='pedestrian') { pedestrianNodes.push(pts[i-1],pts[i]); }
-      else if(['primary','secondary','tertiary','residential','living_street'].includes(tag)) {
-        const dx=pts[i].x-pts[i-1].x,dz=pts[i].z-pts[i-1].z,len=Math.hypot(dx,dz)||1;
-        const nx=-dz/len*(width/2+2.8),nz=dx/len*(width/2+2.8);
-        pedestrianNodes.push({x:pts[i-1].x+nx,z:pts[i-1].z+nz},{x:pts[i].x+nx,z:pts[i].z+nz},{x:pts[i-1].x-nx,z:pts[i-1].z-nz},{x:pts[i].x-nx,z:pts[i].z-nz});
+  ways.forEach(w=>{
+    const tag=w.tags.highway;if(ignored.has(tag))return;
+    const raw=w.nodes.map(id=>nodes.get(id)).filter(Boolean);if(raw.length<2)return;
+    if(pedestrianOnly.has(tag)){
+      let last=null;
+      for(const p of raw){if(!last||Math.hypot(p.x-last.x,p.z-last.z)>=18){pedestrianNodes.push(p);last=p;}}
+      return;
+    }
+    const width=roadWidths[tag]||4;
+    const tolerance=['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link'].includes(tag)?2.5:(tag==='service'||tag==='track'?6:4);
+    const pts=simplifyRoadPoints(raw,tolerance);
+    for(let i=1;i<pts.length;i++){
+      const a=pts[i-1],b=pts[i],len=Math.hypot(b.x-a.x,b.z-a.z);if(len<.5)continue;
+      addQuad(a,b,width,.012);
+      osmRoadSegments.push({a,b,width,type:tag,name:w.tags.name||''});
+      if(['primary','secondary','tertiary','residential','living_street'].includes(tag)&&(i%3===0||i===pts.length-1)){
+        const dx=b.x-a.x,dz=b.z-a.z,l=Math.hypot(dx,dz)||1,nx=-dz/l*(width/2+2.8),nz=dx/l*(width/2+2.8);
+        pedestrianNodes.push({x:b.x+nx,z:b.z+nz},{x:b.x-nx,z:b.z-nz});
       }
     }
   });
-  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3)); g.setIndex(indices); g.computeVertexNormals();
-  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a})); mesh.receiveShadow=true; scene.add(mesh);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a}));mesh.receiveShadow=true;scene.add(mesh);
+  rebuildPedestrianGrid();
   decorateOSMStreets();
-  // Liserés de trottoirs discrets le long des voies structurantes
-  const curbV=[], curbI=[];
-  osmRoadSegments.filter(r=>['primary','secondary','tertiary','residential'].includes(r.type)).forEach(r=>{
-    const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,len=Math.hypot(dx,dz)||1,nx=-dz/len*(r.width/2+0.9),nz=dx/len*(r.width/2+0.9);
-    for(const sign of [-1,1]) { const k=curbV.length/3; curbV.push(r.a.x+nx*sign,0.025,r.a.z+nz*sign,r.b.x+nx*sign,0.025,r.b.z+nz*sign); }
-  });
-  // Noms des rues utilisés comme repères de navigation, sans prétendre recréer les adresses manquantes.
-  const seen=new Set(); osmRoadSegments.forEach(r=>{if(r.name&&!seen.has(r.name)&&seen.size<70){seen.add(r.name);const mid={x:(r.a.x+r.b.x)/2,z:(r.a.z+r.b.z)/2};if(Math.hypot(mid.x,mid.z)<6500)makeStreetLabel(mid.x,mid.z,r.name);}});
+  const seen=new Set();
+  osmRoadSegments.forEach(r=>{if(r.name&&!seen.has(r.name)&&seen.size<70){seen.add(r.name);const mid={x:(r.a.x+r.b.x)/2,z:(r.a.z+r.b.z)/2};if(Math.hypot(mid.x,mid.z)<6500)makeStreetLabel(mid.x,mid.z,r.name);}});
+  console.info('Réseau routier optimisé :',osmRoadSegments.length,'segments ;',pedestrianNodes.length,'points piétons');
 }
-
 
 // Habillage urbain : trottoirs continus, marquage routier, éclairage et repères de rue.
 function decorateOSMStreets(){
   const sidewalkV=[],sidewalkI=[],lineV=[],lineI=[];
   const lampSpots=new Set(); let lampCount=0;
   function quad(arr,idx,a,b,c,d,y){const k=arr.length/3;[a,b,c,d].forEach(q=>arr.push(q.x,terrainHeight(q.x,q.z)+y,q.z));idx.push(k,k+1,k+2,k,k+2,k+3);}
-  for(const r of osmRoadSegments){
-    if(['footway','path','pedestrian','steps'].includes(r.type))continue;
+  for(let roadIndex=0;roadIndex<osmRoadSegments.length;roadIndex++){
+    const r=osmRoadSegments[roadIndex];
+    const detailed=['motorway','trunk','primary','secondary','tertiary'].includes(r.type)||(r.type==='residential'&&roadIndex%4===0);
+    if(!detailed)continue;
     const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,len=Math.hypot(dx,dz);if(len<7)continue;
     const nx=-dz/len,nz=dx/len;
     const sidewalkWidth=(r.type==='primary'||r.type==='secondary')?2.6:1.65;
@@ -881,7 +922,10 @@ function decorateOSMStreets(){
   }
   // Carrefours : repère les nœuds où plusieurs rues se rejoignent et ajoute des passages piétons.
   const junctions=new Map();
-  for(const r of osmRoadSegments){for(const p of [r.a,r.b]){const k=Math.round(p.x/3)+':'+Math.round(p.z/3);if(!junctions.has(k))junctions.set(k,{x:p.x,z:p.z,degree:0,roads:[]});const j=junctions.get(k);j.degree++;j.roads.push(r);}}
+  for(let roadIndex=0;roadIndex<osmRoadSegments.length;roadIndex++){
+    if(roadIndex%3!==0)continue;const r=osmRoadSegments[roadIndex];
+    if(!['motorway','trunk','primary','secondary','tertiary','residential'].includes(r.type))continue;
+    for(const p of [r.a,r.b]){const k=Math.round(p.x/3)+':'+Math.round(p.z/3);if(!junctions.has(k))junctions.set(k,{x:p.x,z:p.z,degree:0,roads:[]});const j=junctions.get(k);j.degree++;j.roads.push(r);}}
   let crossingCount=0;
   for(const j of junctions.values()){
     if(j.degree<3||crossingCount>=55)continue;
@@ -2611,14 +2655,16 @@ function updatePlayer(delta) {
 function updateNPCs(delta) {
   npcs.forEach(npc=>{
     const d=npc.userData; if(d.dead||!npc.visible)return;
-    if(vehicles.some(v=>!v.userData.wreck&&Math.hypot(v.position.x-npc.position.x,v.position.z-npc.position.z)<4.1)){d.pauseTimer=Math.max(d.pauseTimer||0,.3);animateCharacter(npc,delta,false);return;}
+    d.vehicleCheckTimer=(d.vehicleCheckTimer||0)-delta;
+    if(d.vehicleCheckTimer<=0){d.vehicleCheckTimer=.22;d.nearVehicle=vehicles.some(v=>!v.userData.wreck&&Math.hypot(v.position.x-npc.position.x,v.position.z-npc.position.z)<4.1);}
+    if(d.nearVehicle){d.pauseTimer=Math.max(d.pauseTimer||0,.3);animateCharacter(npc,delta,false);return;}
     if(d.pauseTimer>0){d.pauseTimer-=delta;animateCharacter(npc,delta,false);return;}
     d.changeTimer-=delta;
     if(d.changeTimer<=0){
       d.changeTimer=5+Math.random()*12;
       if(Math.random()<.24){d.pauseTimer=2+Math.random()*5;animateCharacter(npc,delta,false);return;}
       let target=null;
-      if(osmLoaded&&pedestrianNodes.length){const nearby=pedestrianNodes.filter(p=>Math.hypot(p.x-npc.position.x,p.z-npc.position.z)<140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
+      if(osmLoaded&&pedestrianNodes.length){const nearby=getNearbyPedestrianNodes(npc.position.x,npc.position.z,140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
       else target={x:npc.position.x+(Math.random()-.5)*100,z:npc.position.z+(Math.random()-.5)*100};
       d.targetX=target.x;d.targetZ=target.z;
     }
