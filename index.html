@@ -578,7 +578,7 @@ function createUrbanFlowerbeds(ox,oz){
   const dummy=new THREE.Object3D();let seed=20261112;
   function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   let beds=0,trees=0;
-  for(let attempt=0;attempt<210&&beds<58;attempt++){
+  for(let attempt=0;attempt<170&&beds<44;attempt++){
     const x=ox+(rnd()-.5)*1880,z=oz+(rnd()-.5)*1880;
     if(isOnRoad(x,z,5)||overlapsExisting(x,z,7,6,2.5))continue;
     const patch=new THREE.Mesh(new THREE.CircleGeometry(2.45,12),new THREE.MeshLambertMaterial({color:0x4f9148}));
@@ -603,7 +603,7 @@ function createUrbanFlowerbeds(ox,oz){
   addInstances(stemGeo,stemMat,stems);
   petals.forEach((list,i)=>addInstances(petalGeo,petalMats[i],list));
   addInstances(centerGeo,new THREE.MeshLambertMaterial({color:0xf5c542}),centers);
-  for(let i=0;i<34&&trees<34;i++){
+  for(let i=0;i<24&&trees<24;i++){
     const x=ox+(rnd()-.5)*1850,z=oz+(rnd()-.5)*1850;
     if(isOnRoad(x,z,4)||overlapsExisting(x,z,2.5,2.5,3))continue;
     createTree(x,z);trees++;
@@ -666,7 +666,7 @@ function buildPlayableUrbanCore(){
     // Chaque îlot contient plusieurs parcelles, pas un seul bloc isolé.
     for(let sideX=-1;sideX<=1;sideX+=2){for(let sideZ=-1;sideZ<=1;sideZ+=2){
       const count=2+(rnd()>.72?1:0);
-      for(let n=0;n<count&&made<250;n++){
+      for(let n=0;n<count&&made<175;n++){
         const w=15+rnd()*21,d=14+rnd()*20;
         const x=bx+sideX*(35+n*27)+(rnd()-.5)*9;
         const z=bz+sideZ*(35+n*27)+(rnd()-.5)*9;
@@ -1743,10 +1743,11 @@ function createStall(x, z) {
 
 function createTree(x, z) {
   const s = 0.75 + Math.random() * 0.55;
+  const ground=terrainHeight(x,z);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * s, 0.32 * s, 2.3 * s, 6), new THREE.MeshLambertMaterial({ color: 0x5d4037 }));
-  trunk.position.set(x, 1.15 * s, z); trunk.castShadow = true; scene.add(trunk);
+  trunk.position.set(x, ground+1.15*s, z); trunk.castShadow = true; scene.add(trunk);
   const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.3 * s, 8, 6), new THREE.MeshLambertMaterial({ color: 0x2e7d32 }));
-  leaves.position.set(x, 3 * s, z); leaves.castShadow = true; scene.add(leaves);
+  leaves.position.set(x, ground+3*s, z); leaves.castShadow = true; scene.add(leaves);
   addObstacle(x, z, 0.75 * s, 0.75 * s, 2.8 * s);
 }
 
