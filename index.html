@@ -181,7 +181,7 @@
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
-    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
+    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
     <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
   </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2451,7 +2451,7 @@ function enterBuilding(door) {
   if(!door || !door.home || currentInterior || !player) return;
   const interior=interiors[door.id]; if(!interior) return;
   lastExteriorPosition={x:door.x+door.normal.x*3.6,z:door.z+door.normal.z*3.6,y:terrainHeight(door.x+door.normal.x*3.6,door.z+door.normal.z*3.6)+0.02,rotation:Math.atan2(door.normal.x,door.normal.z),door};
-  currentInterior=interior;currentApartment=null;interior.group.visible=true;interior.currentFloor=0;currentFloor=0;
+  currentInterior=interior;currentApartment=null;interior.group.visible=true;interior.currentFloor=0;currentFloor=0;restoreHomeDecor(interior);
   interior.floors.forEach((f,i)=>f.visible=i===0);
   const gp=interior.group.position;
   player.position.set(gp.x,0.02,gp.z+interior.roomD/2-2.2);
@@ -2498,7 +2498,7 @@ function exitBuilding() {
 
 function enterApartment(item){
   if(!currentInterior||!item||item.type!=='apartmentDoor')return;const hall=currentInterior,apt=hall.apartments&&hall.apartments[item.apartmentIndex];if(!apt){showMessage('Cet appartement est indisponible.');return;}
-  currentApartment={hall,apartment:apt,hallFloor:currentFloor,side:item.x<0?-1:1};hall.floors[currentFloor].visible=false;apt.group.visible=true;apt.floors.forEach((f,i)=>f.visible=i===0);currentInterior=apt;currentFloor=0;
+  currentApartment={hall,apartment:apt,hallFloor:currentFloor,side:item.x<0?-1:1};hall.floors[currentFloor].visible=false;apt.group.visible=true;apt.floors.forEach((f,i)=>f.visible=i===0);currentInterior=apt;currentFloor=0;restoreHomeDecor(apt);
   const gp=apt.group.position;player.position.set(gp.x,0.02,gp.z+apt.roomD/2-2.0);movementState.onGround=true;movementState.yVelocity=0;player.rotation.y=Math.PI;cameraYaw=0;cameraPitch=1.08;
   document.getElementById('interiorHint').textContent='🏠 Ton appartement privé · E près de la porte pour rejoindre le couloir · F pour les meubles';document.getElementById('etage').textContent='Appartement privé';showMessage('Bienvenue chez toi. Les autres appartements restent invisibles.');
 }
@@ -2750,7 +2750,8 @@ function loadLifeProgress(){
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
-    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
+    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,80));
+    if(saved.homeDecor&&typeof saved.homeDecor==='object'&&!Array.isArray(saved.homeDecor)){lifeState.homeDecor={};for(const [key,list] of Object.entries(saved.homeDecor)){if(typeof key==='string'&&Array.isArray(list))lifeState.homeDecor[key]=list.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.x)&&Number.isFinite(x.z)&&Number.isInteger(x.floor)).slice(0,40);}}
     if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
     if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
@@ -2761,7 +2762,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,delivery:lifeState.delivery,creator:lifeState.creator,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2950,6 +2951,85 @@ function renderInventoryApp(){
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
  content.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.use);if(!it||!lifeState.inventory[it.id])return;if(it.hunger)lifeState.hunger=Math.min(100,lifeState.hunger+it.hunger);if(it.energy)lifeState.energy=Math.min(100,lifeState.energy+it.energy);if(it.social)lifeState.social=Math.min(100,lifeState.social+it.social);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];saveLifeProgress(false);renderInventoryApp();});
 }
+
+const ABJ_JUMIA_ITEMS=[
+ {id:'jumia-sofa',name:'Canapé 2 places',price:18000,kind:'sofa',description:'Canapé confortable pour le salon.'},
+ {id:'jumia-bed',name:'Lit double',price:25000,kind:'bed',description:'Un vrai lit pour récupérer chez soi.'},
+ {id:'jumia-table',name:'Table basse',price:9000,kind:'table',description:'Table en bois pour le séjour.'},
+ {id:'jumia-tv',name:'Téléviseur',price:42000,kind:'tv',description:'Télévision à installer dans ton salon.'},
+ {id:'jumia-fridge',name:'Réfrigérateur',price:55000,kind:'fridge',description:'Réfrigérateur pour la cuisine.'},
+ {id:'jumia-plant',name:'Plante décorative',price:4500,kind:'plant',description:'Une touche de verdure pour la maison.'}
+];
+function makeJumiaFurniture(item,x,z){
+ const g=new THREE.Group(),mat=c=>new THREE.MeshLambertMaterial({color:c});
+ const add=(geo,m,px,py,pz)=>{const o=new THREE.Mesh(geo,m);o.position.set(px,py,pz);o.castShadow=true;o.receiveShadow=true;g.add(o);return o;};
+ if(item.kind==='sofa'){
+  add(new THREE.BoxGeometry(2.5,.48,1.05),mat(0x426b83),0,.48,0);
+  add(new THREE.BoxGeometry(2.5,.85,.25),mat(0x34566b),0,.95,-.4);
+  for(const side of [-1,1])add(new THREE.BoxGeometry(.28,.7,1.05),mat(0x34566b),side*1.12,.75,0);
+  for(const side of [-1,1])add(new THREE.BoxGeometry(.12,.42,.12),mat(0x60452f),side*.92,.2,.32);
+ }else if(item.kind==='bed'){
+  add(new THREE.BoxGeometry(2.25,.35,2.7),mat(0x704b35),0,.35,0);
+  add(new THREE.BoxGeometry(2.12,.28,2.52),mat(0xe7dfd1),0,.62,0);
+  add(new THREE.BoxGeometry(2.3,1.05,.16),mat(0x704b35),0,.75,-1.32);
+  for(const side of [-1,1])add(new THREE.BoxGeometry(.72,.18,.5),mat(0xffffff),side*.55,.86,-.85);
+ }else if(item.kind==='table'){
+  add(new THREE.BoxGeometry(1.8,.13,1.15),mat(0x8b5a35),0,.78,0);
+  for(const x0 of [-.72,.72])for(const z0 of [-.42,.42])add(new THREE.BoxGeometry(.12,.72,.12),mat(0x60452f),x0,.36,z0);
+ }else if(item.kind==='tv'){
+  add(new THREE.BoxGeometry(1.65,.9,.12),mat(0x171d23),0,1.35,0);
+  add(new THREE.BoxGeometry(1.48,.72,.035),mat(0x4e8293),0,1.36,.075);
+  add(new THREE.BoxGeometry(1.9,.16,.48),mat(0x64472f),0,.82,0);
+ }else if(item.kind==='fridge'){
+  add(new THREE.BoxGeometry(1.05,2.1,.9),mat(0xd9e0e1),0,1.05,0);
+  add(new THREE.BoxGeometry(.035,.62,.045),mat(0x65727a),.38,1.1,.47);
+  add(new THREE.BoxGeometry(.98,.035,.035),mat(0x8c999c),0,1.45,.47);
+ }else if(item.kind==='plant'){
+  add(new THREE.CylinderGeometry(.28,.34,.48,8),mat(0xa35f37),0,.24,0);
+  add(new THREE.CylinderGeometry(.07,.09,.85,7),mat(0x4b713e),0,.86,0);
+  for(let i=0;i<5;i++){const a=i*Math.PI*2/5;add(new THREE.SphereGeometry(.28,7,6),mat(0x4f8b4a),Math.cos(a)*.22,1.15+Math.sin(i*1.7)*.12,Math.sin(a)*.22);}
+ }
+ g.position.set(x,0,z);return g;
+}
+function restoreHomeDecor(interior){
+ if(!interior||!interior.doorId)return;
+ const key=interior.doorId,records=lifeState.homeDecor&&lifeState.homeDecor[key]||[];
+ interior.decorLoaded=interior.decorLoaded||new Set();
+ records.forEach(rec=>{
+  const sig=rec.itemId+'|'+rec.floor+'|'+rec.x.toFixed(2)+'|'+rec.z.toFixed(2);
+  if(interior.decorLoaded.has(sig))return;
+  const item=ABJ_JUMIA_ITEMS.find(x=>x.id===rec.itemId),floor=interior.floors[rec.floor];if(!item||!floor)return;
+  const obj=makeJumiaFurniture(item,rec.x,rec.z);floor.add(obj);
+  const type=item.kind==='sofa'?'assoir':item.kind==='bed'?'dormir':'regarder';
+  interior.interactables.push({x:rec.x,z:rec.z,type,label:item.name,floor:rec.floor,object:obj});
+  interior.decorLoaded.add(sig);
+ });
+}
+function renderJumiaApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const cards=ABJ_JUMIA_ITEMS.map(it=>'<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="white-space:nowrap;color:#ffe0a0">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.description)+'</div><button data-jumia-buy="'+it.id+'">Commander</button></article>').join('');
+ const count=ABJ_JUMIA_ITEMS.reduce((n,it)=>n+(lifeState.inventory[it.id]||0),0);
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛋️ Jumia Maison ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b> · Meubles dans le sac : '+count+'</p><p style="font-size:11px;color:#c6d8e5">Achats simulés en FCFA. Les meubles achetés peuvent être installés dans le logement où tu te trouves.</p><h4>Catalogue maison</h4>'+cards+'<h4>Installation</h4><p>'+(currentInterior?'Tu es dans un intérieur. Choisis un meuble acheté puis installe-le près de ton personnage.':'Entre dans une maison ou un appartement pour installer tes meubles.')+'</p>'+ABJ_JUMIA_ITEMS.map(it=>'<button data-jumia-place="'+it.id+'" '+((lifeState.inventory[it.id]||0)<1||!currentInterior?'disabled':'')+'>Installer : '+escapeHTML(it.name)+' ('+(lifeState.inventory[it.id]||0)+')</button>').join('')+'<p id="jumiaStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-jumia-buy]').forEach(btn=>btn.onclick=()=>{
+  const it=ABJ_JUMIA_ITEMS.find(x=>x.id===btn.dataset.jumiaBuy);if(!it)return;
+  if(lifeState.money<it.price){const st=document.getElementById('jumiaStatus');if(st)st.textContent='Solde insuffisant pour cet achat.';return;}
+  lifeState.money-=it.price;lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;
+  lifeState.bankTransactions.push({type:'debit',label:'Jumia : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});
+  lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderJumiaApp();
+  const st=document.getElementById('jumiaStatus');if(st)st.textContent=it.name+' commandé et ajouté à ton sac.';
+ });
+ content.querySelectorAll('[data-jumia-place]').forEach(btn=>btn.onclick=()=>{
+  const it=ABJ_JUMIA_ITEMS.find(x=>x.id===btn.dataset.jumiaPlace);if(!it||!currentInterior||(lifeState.inventory[it.id]||0)<1)return;
+  const gp=currentInterior.group.position,localX=Math.max(-currentInterior.roomW/2+1.8,Math.min(currentInterior.roomW/2-1.8,player.position.x-gp.x)),localZ=Math.max(-currentInterior.roomD/2+1.8,Math.min(currentInterior.roomD/2-1.8,player.position.z-gp.z-2.2));
+  const floor=Math.max(0,Math.min(currentFloor,currentInterior.floors.length-1)),obj=makeJumiaFurniture(it,localX,localZ);currentInterior.floors[floor].add(obj);
+  const type=it.kind==='sofa'?'assoir':it.kind==='bed'?'dormir':'regarder';currentInterior.interactables.push({x:localX,z:localZ,type,label:it.name,floor,object:obj});
+  lifeState.homeDecor=lifeState.homeDecor||{};const key=currentInterior.doorId;lifeState.homeDecor[key]=lifeState.homeDecor[key]||[];lifeState.homeDecor[key].push({itemId:it.id,x:localX,z:localZ,floor});
+  lifeState.homeDecor[key]=lifeState.homeDecor[key].slice(-40);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];
+  saveLifeProgress(false);renderJumiaApp();const st=document.getElementById('jumiaStatus');if(st)st.textContent=it.name+' installé dans ton logement. Tu peux l’utiliser avec F à proximité.';
+ });
+}
+
 function renderShopApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
  const cards=ABJ_SHOP_ITEMS.map(it=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="color:#ffe0a0;white-space:nowrap">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.category)+' · '+escapeHTML(it.description)+'</div><button data-buy="'+it.id+'">Acheter</button></div>').join('');
@@ -3053,18 +3133,19 @@ function openPhoneApp(app){
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
   if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
+  if(app==='jumia'){apps.style.display='none';content.style.display='block';renderJumiaApp();return;}
   if(app==='glovo'){apps.style.display='none';content.style.display='block';renderGlovoApp();return;}
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
     transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
-    boutique:'Achète des produits et retrouve-les dans ton sac.',
+    boutique:'Achète des produits et retrouve-les dans ton sac.',jumia:'Achète des meubles et installe-les dans ton logement.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
     parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.', gallery:'Tes photos prises dans Abidjan Life.'
   };
