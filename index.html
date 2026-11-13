@@ -181,7 +181,7 @@
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
-    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button>
+    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
     <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
   </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2749,7 +2749,7 @@ function loadLifeProgress(){
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
-    if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
+    if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);\n    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
@@ -2758,7 +2758,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2930,6 +2930,30 @@ const ABJ_JOBS=[
 function abjEnsureContact(npc){lifeState.contacts=lifeState.contacts||[];const name=String(npc.userData.name||'Habitant').trim();const id='npc-'+Math.round(npc.position.x*2)+'-'+Math.round(npc.position.z*2)+'-'+name.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12);let c=lifeState.contacts.find(x=>x.id===id);if(!c){c={id,name,relation:1,firstMet:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')};lifeState.contacts.push(c);}else c.relation=Math.min(100,(c.relation||1)+2);lifeState.contacts=lifeState.contacts.slice(-100);return c;}
 function renderContactsApp(){const content=document.getElementById('phoneAppContent');if(!content)return;const contacts=lifeState.contacts||[];const list=contacts.map(c=>'<div style="padding:10px;margin:7px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><b>👤 '+escapeHTML(c.name)+'</b><div style="font-size:11px;color:#c6d8e5">Relation : '+(c.relation||1)+'/100 · rencontré à '+escapeHTML(c.firstMet||'Abidjan')+'</div><button data-chat="'+escapeHTML(c.id)+'" style="margin-top:7px">Envoyer un message</button></div>').join('');content.innerHTML='<button id="phoneBack">← Applications</button><h3>👥 Mes contacts</h3><p style="font-size:12px;color:#c6d8e5">Les habitants deviennent des contacts après une conversation dans la ville.</p>'+(list||'<p>Aucun contact. Approche-toi d’un habitant et appuie sur E pour lui parler.</p>');document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};content.querySelectorAll('[data-chat]').forEach(btn=>btn.onclick=()=>{lifeState.activeContact=btn.dataset.chat;saveLifeProgress(false);renderMessagesApp();});}
 function renderMessagesApp(){const content=document.getElementById('phoneAppContent');if(!content)return;const contacts=lifeState.contacts||[];const selected=contacts.find(c=>c.id===lifeState.activeContact)||contacts[0];const history=selected?(lifeState.messages||[]).filter(m=>m.contactId===selected.id).slice(-12):[];const log=history.map(m=>'<div style="margin:6px 0;padding:8px;border-radius:9px;background:'+(m.from==='player'?'#176b75':'#ffffff18')+';text-align:'+(m.from==='player'?'right':'left')+'"><div style="font-size:10px;color:#c6d8e5">'+(m.from==='player'?'Moi':escapeHTML(selected.name))+' · '+escapeHTML(m.time||'')+'</div>'+escapeHTML(m.text)+'</div>').join('');const options=contacts.map(c=>'<option value="'+escapeHTML(c.id)+'" '+(selected&&c.id===selected.id?'selected':'')+'>'+escapeHTML(c.name)+'</option>').join('');content.innerHTML='<button id="phoneBack">← Applications</button><h3>💬 Messages</h3>'+(selected?'<label style="font-size:12px">Conversation<select id="messageContact" style="display:block;width:100%;padding:9px;margin:6px 0">'+options+'</select></label><div style="max-height:230px;overflow:auto;padding:4px">'+(log||'<p style="font-size:12px;color:#c6d8e5">Début de la conversation. Envoie ton premier message.</p>')+'</div><textarea id="messageDraft" rows="2" maxlength="240" placeholder="Écrire un message..." style="width:100%;padding:9px;border-radius:8px"></textarea><button id="messageSend" style="margin-top:7px">Envoyer</button><p id="messageStatus" style="font-size:11px;color:#ffe0a0"></p>':'<p>Aucune conversation. Rencontre d’abord un habitant pour l’ajouter à tes contacts.</p>');document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};const chooser=document.getElementById('messageContact');if(chooser)chooser.onchange=()=>{lifeState.activeContact=chooser.value;renderMessagesApp();};const send=document.getElementById('messageSend');if(send)send.onclick=()=>{const txt=document.getElementById('messageDraft').value.trim();if(!txt)return;lifeState.messages=lifeState.messages||[];lifeState.messages.push({contactId:selected.id,text:txt,from:'player',time:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.messages=lifeState.messages.slice(-100);lifeState.social=Math.min(100,lifeState.social+2);saveLifeProgress(false);renderMessagesApp();};}
+const ABJ_SHOP_ITEMS=[
+ {id:'eau',name:'Eau minérale',category:'Boisson',price:150,description:'Une bouteille pour reprendre des forces.',energy:8,hunger:3},
+ {id:'pain',name:'Pain',category:'Alimentation',price:200,description:'Un encas simple pour calmer la faim.',hunger:16},
+ {id:'banane',name:'Bananes',category:'Alimentation',price:250,description:'Un petit repas riche en énergie.',hunger:20,energy:3},
+ {id:'atti eke',name:'Garba à emporter',category:'Repas',price:1000,description:'Un repas complet qui restaure bien la faim.',hunger:55,energy:8},
+ {id:'jus',name:'Jus local',category:'Boisson',price:400,description:'Une boisson fraîche.',energy:14,social:2},
+ {id:'savon',name:'Savon',category:'Hygiène',price:500,description:'Un produit utile pour la toilette.',hygiene:1}
+];
+function renderInventoryApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const entries=Object.entries(lifeState.inventory||{}).filter(([id,n])=>n>0);
+ const rows=entries.map(([id,n])=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===id);return it?'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px;border-bottom:1px solid #ffffff20"><div><b>'+escapeHTML(it.name)+'</b><div style="font-size:11px;color:#c6d8e5">Quantité : '+n+'</div></div><button data-use="'+it.id+'">Utiliser</button></div>':'';}).join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🎒 Mon sac</h3>'+(rows||'<p>Ton inventaire est vide. Visite la boutique pour acheter des articles.</p>');
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.use);if(!it||!lifeState.inventory[it.id])return;if(it.hunger)lifeState.hunger=Math.min(100,lifeState.hunger+it.hunger);if(it.energy)lifeState.energy=Math.min(100,lifeState.energy+it.energy);if(it.social)lifeState.social=Math.min(100,lifeState.social+it.social);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];saveLifeProgress(false);renderInventoryApp();});
+}
+function renderShopApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const cards=ABJ_SHOP_ITEMS.map(it=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="color:#ffe0a0;white-space:nowrap">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.category)+' · '+escapeHTML(it.description)+'</div><button data-buy="'+it.id+'">Acheter</button></div>').join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛍️ Boutique ABJ</h3><p>Portefeuille : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><p style="font-size:11px;color:#c6d8e5">Catalogue de simulation. Les achats sont débités du portefeuille du jeu et ajoutés à ton sac.</p><button id="openInventory">🎒 Voir mon sac ('+Object.values(lifeState.inventory||{}).reduce((a,n)=>a+n,0)+')</button>'+cards+'<p id="shopStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ document.getElementById('openInventory').onclick=()=>renderInventoryApp();
+ content.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.buy);if(!it)return;const status=document.getElementById('shopStatus');if(lifeState.money<it.price){status.textContent='Solde insuffisant pour cet achat.';return;}lifeState.money-=it.price;lifeState.inventory=lifeState.inventory||{};lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'debit',label:'Achat : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderShopApp();const msg=document.getElementById('shopStatus');if(msg)msg.textContent=it.name+' ajouté à ton sac.';});
+}
 function renderBankApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
@@ -2979,7 +3003,7 @@ function openPhoneApp(app){
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
-  if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
+  if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}\n  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}\n  if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
@@ -2987,7 +3011,7 @@ function openPhoneApp(app){
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
     transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
-    boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
+    boutique:'Achète des produits et retrouve-les dans ton sac.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
     parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.', gallery:'Tes photos prises dans Abidjan Life.'
   };
