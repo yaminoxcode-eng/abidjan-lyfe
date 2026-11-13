@@ -2746,7 +2746,7 @@ function loadLifeProgress(){
     const raw=localStorage.getItem(LIFE_SAVE_KEY); if(!raw)return;
     const saved=JSON.parse(raw);
     ['hunger','energy','social','health','money','hour','minute','workXP'].forEach(k=>{
-      if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
+      if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:(k==='money'?100000000:100)),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(saved.housing&&typeof saved.housing==='object')lifeState.housing={ownedDoorId:typeof saved.housing.ownedDoorId==='string'?saved.housing.ownedDoorId:null,lease:saved.housing.lease&&typeof saved.housing.lease.doorId==='string'?{doorId:saved.housing.lease.doorId,rent:Math.max(0,Math.min(50000,Number(saved.housing.lease.rent)||0)),startedDay:Math.max(1,Math.floor(Number(saved.housing.lease.startedDay)||1))}:null,arrears:Math.max(0,Math.min(10000000,Number(saved.housing.arrears)||0)),gameDay:Math.max(1,Math.floor(Number(saved.housing.gameDay)||1)),lastBilledDay:Math.max(1,Math.floor(Number(saved.housing.lastBilledDay)||1))};
