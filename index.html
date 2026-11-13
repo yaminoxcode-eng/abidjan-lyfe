@@ -1230,11 +1230,11 @@ function buildTrafficRoute(firstSeg,firstForward,maxSegments){
 function createAbidjanTraffic(count){
   if(!osmRoadSegments.length)return;
   if(!trafficGraph.size)buildTrafficGraph();
-  const candidates=osmRoadSegments.filter(r=>trafficGraph.get(trafficNodeKey(r.a))&&Math.hypot(r.b.x-r.a.x,r.b.z-r.a.z)>30&&r.width>=5);
+  const candidates=(trafficRoadSegments.length?trafficRoadSegments:osmRoadSegments).filter(r=>trafficGraph.get(trafficNodeKey(r.a))&&Math.hypot(r.b.x-r.a.x,r.b.z-r.a.z)>12&&r.width>=5);
   for(let i=0;i<count;i++){
     if(!candidates.length)break;
     const r=candidates[Math.floor(Math.random()*candidates.length)],forward=Math.random()<.5,t=Math.random();
-    const route=buildTrafficRoute(r,forward,10);if(!route.length)continue;
+    const route=buildTrafficRoute(r,forward,36);if(!route.length)continue;
     const first=route[0],len=Math.hypot(first.b.x-first.a.x,first.b.z-first.a.z)||1;
     const progress=(forward?t:1-t)*len;
     const roll=Math.random(),type=roll<.19?'gbaka':roll<.33?'taxi':roll<.46?'woro':roll<.64?'moto':roll<.72?'bus':roll<.84?'luxe':'voiture';
@@ -1293,8 +1293,8 @@ function advanceTrafficVehicle(v,delta){
       remaining-=Math.max(0,available);d.routeIndex++;d.progress=0;
       if(d.routeIndex>=d.route.length){
         const end=seg.b,opts=(trafficGraph.get(trafficNodeKey(end))||[]).filter(o=>o.seg!==seg.source);
-        if(!opts.length){const forward=trafficNodeKey(seg.source.a)===trafficNodeKey(end);d.route=buildTrafficRoute(seg.source,forward,8);d.routeIndex=0;}
-        else{const next=opts[Math.floor(Math.random()*opts.length)];d.route=buildTrafficRoute(next.seg,next.forward,9);d.routeIndex=0;}
+        if(!opts.length){const forward=trafficNodeKey(seg.source.a)===trafficNodeKey(end);d.route=buildTrafficRoute(seg.source,forward,36);d.routeIndex=0;}
+        else{const next=opts[Math.floor(Math.random()*opts.length)];d.route=buildTrafficRoute(next.seg,next.forward,36);d.routeIndex=0;}
         if(!d.route.length)return;
       }
     }
@@ -2938,7 +2938,8 @@ function nearestTrafficNode(x,z,maxDistance=650){
 }
 function buildYangoRoadPath(sx,sz,tx,tz){
  if(!trafficGraph||trafficGraph.size<2)return null;
- const start=nearestTrafficNode(sx,sz),goal=nearestTrafficNode(tx,tz);if(!start||!goal)return null;
+ // On refuse les grands raccords hors chaussée : le taxi ne doit pas traverser la ville en ligne droite.
+ const start=nearestTrafficNode(sx,sz,180),goal=nearestTrafficNode(tx,tz,180);if(!start||!goal)return null;
  const parse=k=>{const [x,z]=k.split(':').map(Number);return {x,z};};
  const goalPoint=parse(goal),g=new Map([[start,0]]),prev=new Map(),open=[],closed=new Set();
  const push=item=>{let i=open.length;open.push(item);while(i>0){const p=(i-1)>>1;if(open[p].f<=item.f)break;open[i]=open[p];i=p;}open[i]=item;};
@@ -2992,7 +2993,7 @@ function updateYangoRide(delta){
  const r=activeYangoRide;if(!r||!player)return;
  if(r.phase==='pickup'){r.pickup-=delta;r.taxi.position.x=player.position.x+Math.sin(r.pickup*2)*2;r.taxi.position.z=player.position.z+Math.cos(r.pickup*2)*2;r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z);if(r.pickup<=0){r.phase='riding';r.lastPosition={x:player.position.x,z:player.position.z};player.visible=false;}}
  if(r.phase==='riding'){
-  let budget=delta*30;
+  let budget=delta*11.5;
   while(budget>0&&r.index<r.points.length-1){const a=r.points[r.index],b=r.points[r.index+1],len=Math.hypot(b.x-a.x,b.z-a.z)||.001,remain=len-r.segmentProgress,step=Math.min(remain,budget);r.segmentProgress+=step;budget-=step;const t=r.segmentProgress/len;r.taxi.position.set(a.x+(b.x-a.x)*t,terrainHeight(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t),a.z+(b.z-a.z)*t);r.taxi.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);r.progress=(r.index+t)/(r.points.length-1);if(r.segmentProgress>=len-.001){r.index++;r.segmentProgress=0;}}
   r.lastPosition={x:r.taxi.position.x,z:r.taxi.position.z};
   if(r.index>=r.points.length-1){const dest=r.destination;player.visible=true;player.position.set(dest.x,terrainHeight(dest.x,dest.z)+.03,dest.z);player.rotation.y=r.taxi.rotation.y;lifeState.money=Math.max(0,lifeState.money-r.fare);lifeState.bankTransactions.push({type:'debit',label:'Yango : '+dest.nom,amount:r.fare,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);if(r.taxi)scene.remove(r.taxi);activeYangoRide=null;saveLifeProgress(false);showMessage('🚖 Arrivée à '+dest.nom+' · '+r.fare.toLocaleString('fr-FR')+' FCFA débités.');renderYangoApp();}
