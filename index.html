@@ -2750,7 +2750,8 @@ function loadLifeProgress(){
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
-    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));\n    if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
+    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
+    if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
     if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
@@ -2779,7 +2780,8 @@ function updateLifeSimulation(delta){
     lifeState.energy=Math.max(0,lifeState.energy-delta*(keys['shift']? .19:.105)*decay);
   }
   if(lifeState.hunger<15)lifeState.energy=Math.max(0,lifeState.energy-delta*.32);
-  lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);\n  if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
+  lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
+  if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
   lifeState.minute+=delta*5.2;
   while(lifeState.minute>=60){lifeState.minute-=60;lifeState.hour=(lifeState.hour+1)%24;}
   const pct=(v)=>Math.round(Math.max(0,Math.min(100,v)))+'%';
@@ -3050,7 +3052,8 @@ function openPhoneApp(app){
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
-  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}\n  if(app==='glovo'){apps.style.display='none';content.style.display='block';renderGlovoApp();return;}
+  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
+  if(app==='glovo'){apps.style.display='none';content.style.display='block';renderGlovoApp();return;}
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
