@@ -2376,7 +2376,7 @@ function createNPCs(count) {
       goal, goalTimer: 10 + Math.random() * 22,
       homeX: px, homeZ: pz
     });
-    if(transportStops.length&&Math.random()<.22){let nearest=null,dist=520;for(const st of transportStops){const d=Math.hypot(st.x-px,st.z-pz);if(d<dist){dist=d;nearest=st;}}if(nearest){npc.userData.transitTargetStop=nearest;npc.userData.transitWaiting=false;npc.userData.targetX=nearest.x;npc.userData.targetZ=nearest.z;}}
+    if(transportStops.length&&Math.random()<.32){let nearest=null,dist=125;for(const st of transportStops){const d=Math.hypot(st.x-px,st.z-pz);if(d<dist){dist=d;nearest=st;}}if(nearest){npc.userData.transitTargetStop=nearest;npc.userData.transitWaiting=false;npc.userData.targetX=nearest.x;npc.userData.targetZ=nearest.z;}}
     scene.add(npc);
     npcs.push(npc);
   }
@@ -2698,8 +2698,8 @@ function updateNPCs(delta) {
     if(d.changeTimer<=0){
       d.changeTimer=5+Math.random()*12;
       if(Math.random()<.24){d.pauseTimer=2+Math.random()*5;animateCharacter(npc,delta,false);return;}
-      let target=null;
-      if(transportStops.length&&Math.random()<.18&&!d.transitRider){const stop=transportStops[Math.floor(Math.random()*transportStops.length)];if(Math.hypot(stop.x-npc.position.x,stop.z-npc.position.z)<260){d.transitTargetStop=stop;d.transitWaiting=false;target=stop;}}
+      let target=d.transitTargetStop&&!d.transitWaiting?d.transitTargetStop:null;
+      if(!target&&transportStops.length&&Math.random()<.18&&!d.transitRider){let stop=null,nearest=125;for(const candidate of transportStops){const distance=Math.hypot(candidate.x-npc.position.x,candidate.z-npc.position.z);if(distance<nearest){nearest=distance;stop=candidate;}}if(stop){d.transitTargetStop=stop;d.transitWaiting=false;target=stop;}}
       if(!target&&osmLoaded&&pedestrianNodes.length){const nearby=getNearbyPedestrianNodes(npc.position.x,npc.position.z,140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
       if(!target)target={x:npc.position.x+(Math.random()-.5)*100,z:npc.position.z+(Math.random()-.5)*100};
       d.targetX=target.x;d.targetZ=target.z;
