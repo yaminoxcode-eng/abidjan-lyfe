@@ -2706,8 +2706,10 @@ function updateNPCs(delta) {
     }
     if(d.targetX===undefined){d.targetX=npc.position.x+(Math.random()-.5)*25;d.targetZ=npc.position.z+(Math.random()-.5)*25;}
     const dx=d.targetX-npc.position.x,dz=d.targetZ-npc.position.z,dist=Math.hypot(dx,dz);
-    if(dist<2){if(d.transitTargetStop&&Math.hypot(d.transitTargetStop.x-npc.position.x,d.transitTargetStop.z-npc.position.z)<5){d.transitWaiting=true;d.pauseTimer=999;d.targetX=undefined;animateCharacter(npc,delta,false);return;}d.pauseTimer=1+Math.random()*3;d.targetX=undefined;return;}
-    const step=Math.min(dist,d.speed*delta),nx=dx/dist,nz=dz/dist;
+    if(d.transitTargetStop&&!d.transitWaiting&&Math.hypot(d.transitTargetStop.x-npc.position.x,d.transitTargetStop.z-npc.position.z)<8){d.transitWaiting=true;d.pauseTimer=999;d.targetX=undefined;animateCharacter(npc,delta,false);return;}
+    if(dist<2){d.pauseTimer=1+Math.random()*3;d.targetX=undefined;return;}
+    const walkSpeed=d.transitTargetStop&&!d.transitWaiting?Math.max(d.speed,2.2):d.speed;
+    const step=Math.min(dist,walkSpeed*delta),nx=dx/dist,nz=dz/dist;
     const next=npc.position.clone();next.x+=nx*step;next.z+=nz*step;resolveCollisions(next,.34);
     npc.position.x=next.x;npc.position.z=next.z;npc.position.y=terrainHeight(next.x,next.z)+0.02;npc.rotation.y=Math.atan2(nx,nz);animateCharacter(npc,delta,true);
   });
