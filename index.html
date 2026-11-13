@@ -2920,7 +2920,7 @@ function escapeHTML(value){return String(value==null?'':value).replace(/[&<>"']/
 function nearestTrafficNode(x,z){
  let best=null,dist=Infinity;
  for(const key of trafficGraph.keys()){const [nx,nz]=key.split(':').map(Number),d=Math.hypot(nx-x,nz-z);if(d<dist){dist=d;best=key;}}
- return best&&dist<180?best:null;
+ return best&&dist<1500?best:null;
 }
 function buildYangoRoadPath(sx,sz,tx,tz){
  if(!trafficGraph||trafficGraph.size<2)return null;
