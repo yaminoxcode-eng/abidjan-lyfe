@@ -2561,8 +2561,7 @@ function startPlayerAtHome(){
   if(initialHomeEntered||!player||!doors.length)return;
   const homes=doors.filter(d=>d.home&&interiors[d.id]&&!d.buildingType);
   if(!homes.length)return;
-  const pool=homes.filter(d=>Math.hypot(d.x,d.z)<8500),choices=pool.length?pool:homes;
-  const nearest=choices[Math.floor(Math.random()*choices.length)];
+  const nearest=homes[Math.floor(Math.random()*homes.length)];
   player.position.set(nearest.x+nearest.normal.x*3.6,terrainHeight(nearest.x+nearest.normal.x*3.6,nearest.z+nearest.normal.z*3.6)+.02,nearest.z+nearest.normal.z*3.6);
   initialHomeEntered=true;
   enterBuilding(nearest);
@@ -3157,7 +3156,11 @@ const ABJ_ADMIN_SERVICES=[
  {id:'birth',name:'Extrait d’acte de naissance',price:1000,description:'Document de base pour constituer ton dossier.',requires:[]},
  {id:'cni',name:'Carte nationale d’identité',price:3000,description:'Pièce d’identité de ton personnage.',requires:['birth']},
  {id:'residence',name:'Attestation de résidence',price:1500,description:'Justificatif administratif de domicile.',requires:['cni']},
- {id:'permit',name:'Permis de conduire',price:15000,description:'Autorisation de conduire dans la simulation.',requires:['cni']}
+ {id:'permit',name:'Permis de conduire',price:15000,description:'Autorisation de conduire dans la simulation.',requires:['cni']},
+ {id:'passport',name:'Passeport ivoirien',price:25000,description:'Document de voyage de ton personnage.',requires:['birth','cni']},
+ {id:'family',name:'Certificat de situation matrimoniale',price:2000,description:'Document administratif lié à ta situation familiale.',requires:['birth']},
+ {id:'residence2',name:'Certificat de domicile',price:1500,description:'Justificatif complémentaire de ton adresse.',requires:['residence']},
+ {id:'tax',name:'Identifiant contribuable',price:5000,description:'Identifiant pour les démarches fiscales et certaines activités professionnelles.',requires:['cni']}
 ];
 
 
@@ -3619,7 +3622,7 @@ function drawBigMap(){
   const scale=Math.min(W,H)/CITY_SIZE,cx=W/2,cy=H/2,toX=x=>cx+x*scale,toY=z=>cy+z*scale;
   if(osmLoaded){ctx.lineCap='round';ctx.lineJoin='round';osmRoadSegments.forEach(r=>{ctx.strokeStyle=(r.type==='motorway'||r.type==='trunk')?'#d6a64c':(r.type==='primary'||r.type==='secondary')?'#fffdf6':'#fff';ctx.lineWidth=Math.max(.65,r.width*scale);ctx.beginPath();ctx.moveTo(toX(r.a.x),toY(r.a.z));ctx.lineTo(toX(r.b.x),toY(r.b.z));ctx.stroke();});}
   else{ctx.fillStyle='#253d36';ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.fillText('La carte interactive nécessite une connexion aux cartes OpenStreetMap.',W/2,H/2);}
-  if(player){ctx.fillStyle='#e7473f';ctx.beginPath();ctx.arc(toX(player.position.x),toY(player.position.z),8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}
+  if(player){const px=toX(player.position.x),py=toY(player.position.z);ctx.fillStyle='rgba(231,71,63,.22)';ctx.beginPath();ctx.arc(px,py,17,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e7473f';ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();ctx.fillStyle='#17252b';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('VOUS ÊTES ICI',px,py-22);ctx.strokeStyle='#e7473f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py+11);ctx.lineTo(px,py+22);ctx.stroke();}
   ctx.fillStyle='#17252b';ctx.font='bold 18px Arial';ctx.textAlign='left';ctx.fillText('ABIDJAN LIFE · PLAN DU JEU',18,30);
 }
 
