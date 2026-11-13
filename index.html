@@ -244,6 +244,7 @@ let lastExteriorPosition = null;
 let initialHomeEntered = false;
 let residentialDoorCount = 0;
 let trafficGraph = new Map();
+let transportStops = [];
 
 // Quartiers positionnés de façon relative (Plateau centre-affaires, Cocody est, Yop ouest, etc.)
 const QUARTIERS = [
@@ -954,16 +955,35 @@ function createStreetLamp(x,z){
 }
 function buildOSMNodePlaces(elements,nodes){
   let shown=0;const seen=new Set();
-  for(const el of elements){if(shown>=650)break;const p=nodes.get(el.id);if(!p)continue;const t=el.tags||{};
-    const type=t.shop?'commerce':t.amenity==='school'?'ecole':t.amenity==='hospital'||t.amenity==='clinic'?'sante':t.amenity==='place_of_worship'?'culte':t.highway==='bus_stop'||t.public_transport?'transport':t.tourism?'tourisme':'service';
-    const name=t.name||t['name:fr']||t.shop||t.amenity||t.office||t.tourism||'Lieu de quartier';
-    const key=Math.round(p.x/8)+':'+Math.round(p.z/8);if(seen.has(key))continue;seen.add(key);
+  const tagged=elements.filter(el=>el.type==='node'&&el.tags&&nodes.has(el.id));
+  // Les arrêts sont traités en premier : ils ne doivent pas disparaître derrière la limite des POI.
+  tagged.sort((a,b)=>{
+    const score=e=>{const t=e.tags||{};return (t.highway==='bus_stop'?5:0)+(t.public_transport==='platform'?4:0)+(t.public_transport==='stop_position'?3:0)+(t.amenity==='school'||t.amenity==='university'?2:0);};
+    return score(b)-score(a);
+  });
+  for(const el of tagged){
+    if(shown>=1800)break;
+    const p=nodes.get(el.id),t=el.tags||{};
+    const isStop=t.highway==='bus_stop'||t.public_transport==='platform'||t.public_transport==='stop_position'||t.amenity==='bus_station'||t.amenity==='ferry_terminal';
+    const isEducation=['school','university','college','kindergarten'].includes(t.amenity)||['school','university','college'].includes(t.building);
+    const type=t.shop?'commerce':t.amenity==='university'||t.amenity==='college'||t.building==='university'?'universite':isEducation?'ecole':t.amenity==='hospital'||t.amenity==='clinic'?'sante':t.amenity==='place_of_worship'?'culte':isStop?'transport':t.tourism?'tourisme':'service';
+    const name=t.name||t['name:fr']||t.shop||t.amenity||t.office||t.tourism||(isStop?'Arrêt de transport': 'Lieu de quartier');
+    const key=Math.round(p.x/8)+':'+Math.round(p.z/8);
+    if(isStop){
+      if(!transportStops.some(st=>Math.hypot(st.x-p.x,st.z-p.z)<12)){
+        const mode=t.amenity==='ferry_terminal'?'Bateau':t.amenity==='bus_station'?'Gare de bus':t.operator==='SOTRA'?'Bus SOTRA':t.highway==='bus_stop'?'Bus / gbaka':'Arrêt gbaka / bus';
+        transportStops.push({x:p.x,z:p.z,name,mode,operator:t.operator||'',commune:getCommuneZoneAt(p.x,p.z)?.name||'Abidjan'});
+      }
+    }
+    if(seen.has(key))continue;seen.add(key);
     addPOI(p.x,p.z,type,name,t);shown++;
-    if(t.shop||t.highway==='bus_stop'||t.public_transport==='platform'){
-      const base=new THREE.Mesh(new THREE.BoxGeometry(t.shop?1.1:1.5,.12,t.shop?1.1:.65),new THREE.MeshLambertMaterial({color:t.shop?0x9a6037:0x667b80}));base.position.set(p.x,terrainHeight(p.x,p.z)+.12,p.z);scene.add(base);
-      if(t.highway==='bus_stop'||t.public_transport==='platform'){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,2.1,6),new THREE.MeshLambertMaterial({color:0x52666b}));pole.position.set(p.x,terrainHeight(p.x,p.z)+1.15,p.z);scene.add(pole);}
+    if(t.shop||t.highway==='bus_stop'||t.public_transport==='platform'||t.amenity==='bus_station'){
+      const base=new THREE.Mesh(new THREE.BoxGeometry(t.shop?1.1:1.5,.12,t.shop?1.1:.65),new THREE.MeshLambertMaterial({color:t.shop?0x9a6037:0x667b80}));
+      base.position.set(p.x,terrainHeight(p.x,p.z)+.12,p.z);scene.add(base);
+      if(isStop){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,2.1,6),new THREE.MeshLambertMaterial({color:0x52666b}));pole.position.set(p.x,terrainHeight(p.x,p.z)+1.15,p.z);scene.add(pole);}
     }
   }
+  console.info('Arrêts de transport cartographiés dans Abidjan :',transportStops.length);
 }
 
 function isSignatureLandmarkTag(tag){
@@ -985,6 +1005,7 @@ function buildOSMBuildings(ways,nodes) {
     const shape=new THREE.Shape(); shape.moveTo(pts[0].x,pts[0].z); for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z); shape.closePath();
     const tag=w.tags||{};
     if(isSignatureLandmarkTag(tag))return; // Modèles dédiés reconstruits plus précisément à leur vraie position.
+    if(['school','university','college'].includes(tag.building)||['school','university','college'].includes(tag.amenity))addPOI(pts.reduce((v,p)=>v+p.x,0)/pts.length,pts.reduce((v,p)=>v+p.z,0)/pts.length,tag.amenity==='university'||tag.building==='university'?'universite':'ecole',tag.name||tag['name:fr']||'Établissement scolaire',tag);
     const levels=Math.max(1,Math.min(18,parseInt(tag['building:levels']||'')|| (tag.building==='apartments'?4:tag.building==='commercial'?3:2)));
     const h=Math.max(3.2,Math.min(58,levels*3.05));
     // Détails de façade légers : vitrages et portes regroupés dans une seule géométrie.
@@ -2799,22 +2820,34 @@ function showMessage(text) {
 // ============================================================
 // QUARTIERS, COMMUNES ET TÉLÉPHONE DU JOUEUR
 // ============================================================
-const COMMUNE_BY_QUARTIER={Cocody:'Cocody',Plateau:'Le Plateau',Yopougon:'Yopougon',Treichville:'Treichville',Adjamé:'Adjamé',Marcory:'Marcory'};
+const COMMUNE_ZONES=[
+  {name:'Anyama',x1:-9000,x2:2500,z1:-21000,z2:-14300,quarters:['Anyama Centre','Anyama Sud','Azaguié route']},
+  {name:'Abobo',x1:-7200,x2:3200,z1:-14300,z2:-7900,quarters:['Abobo Baoulé','Abobo Centre','Avocatier','Anonkoua-Kouté']},
+  {name:'Songon',x1:-15000,x2:-6500,z1:-14000,z2:-1500,quarters:['Songon Centre','Songon Agban','Bimbresso']},
+  {name:'Yopougon',x1:-11600,x2:-2800,z1:-9500,z2:1900,quarters:['Niangon','Siporex','Wassakara','Toits-Rouges','Sideci']},
+  {name:'Attécoubé',x1:-5200,x2:-700,z1:-7900,z2:-900,quarters:['Attécoubé Centre','Abobo-Doumé','Locodjro']},
+  {name:'Adjamé',x1:-3600,x2:700,z1:-7600,z2:-2600,quarters:['Liberté','220 logements','Forum','Williamsville']},
+  {name:'Cocody',x1:400,x2:8500,z1:-10500,z2:-450,quarters:['Angré','Riviera','Deux-Plateaux','Danga','Cocody Centre']},
+  {name:'Bingerville',x1:7800,x2:15500,z1:-10800,z2:-1200,quarters:['Bingerville Centre','Feh Kessé','Gbagba']},
+  {name:'Le Plateau',x1:-1700,x2:1700,z1:-2600,z2:100,quarters:['Centre administratif','Indénié','Commerce']},
+  {name:'Treichville',x1:-900,x2:2800,z1:0,z2:3100,quarters:['Arras','Biafra','Belleville']},
+  {name:'Marcory',x1:1800,x2:7200,z1:0,z2:5100,quarters:['Zone 4','Résidentiel','Anoumabo']},
+  {name:'Koumassi',x1:5200,x2:9800,z1:1800,z2:6000,quarters:['Koumassi Centre','Remblais','Campement']},
+  {name:'Port-Bouët',x1:6200,x2:13200,z1:4800,z2:10800,quarters:['Vridi',' Gonzagueville','Port-Bouët Centre']}
+];
+function getCommuneZoneAt(x,z){
+  // Les communes sont évaluées dans un ordre géographique pour limiter les chevauchements des rectangles approximatifs.
+  for(const c of COMMUNE_ZONES)if(x>=c.x1&&x<=c.x2&&z>=c.z1&&z<=c.z2)return c;
+  return null;
+}
 function getDistrictNames(){
   if(!player)return {quartier:'Abidjan',commune:'Abidjan'};
-  const q=getQuartierAt(player.position.x,player.position.z);
-  const nx=player.position.x/(CITY_SIZE/2),nz=player.position.z/(CITY_SIZE/2);
-  const subzones={
-    Cocody:['Angré','Riviera','Deux-Plateaux'],
-    Plateau:['Centre administratif','Indénié','Commerce'],
-    Yopougon:['Niangon','Siporex','Wassakara'],
-    Treichville:['Arras','Biafra','Belleville'],
-    Adjamé:['Liberté','220 logements','Forum'],
-    Marcory:['Zone 4','Résidentiel','Anoumabo']
-  };
-  const list=subzones[q.nom]||['Centre'];
-  const idx=Math.abs(Math.floor((nx*13+nz*17)*3))%list.length;
-  return {quartier:list[idx],commune:COMMUNE_BY_QUARTIER[q.nom]||q.nom,zone:q.nom};
+  const x=player.position.x,z=player.position.z,c=getCommuneZoneAt(x,z),q=getQuartierAt(x,z);
+  if(c){
+    const ix=Math.abs(Math.floor((x/173+z/137)*7))%c.quarters.length;
+    return {quartier:c.quarters[ix],commune:c.name,zone:q.nom};
+  }
+  return {quartier:q.nom+' Centre',commune:q.nom,zone:q.nom};
 }
 function updateDistrictHUD(){
   if(currentInterior||!player)return;
@@ -2836,18 +2869,29 @@ function closePhone(){
   const apps=document.getElementById('phoneApps');if(apps)apps.style.display='grid';
   if(renderer&&!dialogOpen&&!panelOpen&&!mapOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();
 }
+function renderTransportApp(){
+  const content=document.getElementById('phoneAppContent');if(!content)return;
+  const px=player?player.position.x:0,pz=player?player.position.z:0;
+  const near=transportStops.slice().sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,12);
+  const rows=near.length?near.map(st=>'<div style="padding:9px;margin:7px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(st.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(st.mode)+' · '+escapeHTML(st.commune)+'</div><div style="font-size:11px;color:#ffe0a0">'+(Math.round(Math.hypot(st.x-px,st.z-pz)))+' m de ta position</div></div>').join(''):'<p>Aucun arrêt OSM disponible dans les données chargées.</p>';
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚏 Arrêts autour de moi</h3><p style="font-size:11px;color:#c6d8e5">Arrêts cartographiés dans toutes les communes couvertes par la carte.</p>'+rows+'<button id="transportRefresh">Actualiser ma position</button><button id="transportMap">Voir la carte</button>';
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+  document.getElementById('transportRefresh').onclick=renderTransportApp;
+  document.getElementById('transportMap').onclick=()=>{closePhone();openBigMap();};
+}
 function openPhoneApp(app){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
   if(!apps||!content)return;
   if(app==='localisation'){closePhone();openBigMap();return;}
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
+  if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Les habitants que tu rencontres seront ajoutés ici.',
     messages:'Aucun nouveau message pour le moment.',
     banque:'Solde disponible : '+Math.floor(lifeState.money)+' FCFA.',
-    transport:'Les lignes de gbaka, taxis et bus seront consultables ici.',
+    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
     travail:'Trouve un lieu de travail dans la ville pour gagner de l’argent.',
     boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
