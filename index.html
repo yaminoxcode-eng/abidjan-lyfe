@@ -2749,7 +2749,7 @@ function loadLifeProgress(){
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:(k==='money'?100000000:100)),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
-    if(saved.housing&&typeof saved.housing==='object')lifeState.housing={ownedDoorId:typeof saved.housing.ownedDoorId==='string'?saved.housing.ownedDoorId:null,lease:saved.housing.lease&&typeof saved.housing.lease.doorId==='string'?{doorId:saved.housing.lease.doorId,rent:Math.max(0,Math.min(50000,Number(saved.housing.lease.rent)||0)),startedDay:Math.max(1,Math.floor(Number(saved.housing.lease.startedDay)||1))}:null,arrears:Math.max(0,Math.min(10000000,Number(saved.housing.arrears)||0)),gameDay:Math.max(1,Math.floor(Number(saved.housing.gameDay)||1)),lastBilledDay:Math.max(1,Math.floor(Number(saved.housing.lastBilledDay)||1))};
+    if(saved.housing&&typeof saved.housing==='object'){const savedRent=Math.max(0,Math.min(50000,Number(saved.housing.lease&&saved.housing.lease.rent)||0));lifeState.housing={ownedDoorId:typeof saved.housing.ownedDoorId==='string'?saved.housing.ownedDoorId:null,lease:saved.housing.lease&&typeof saved.housing.lease.doorId==='string'?{doorId:saved.housing.lease.doorId,rent:savedRent,deposit:Math.max(0,Math.min(100000,Number(saved.housing.lease.deposit)||savedRent*2)),startedDay:Math.max(1,Math.floor(Number(saved.housing.lease.startedDay)||1))}:null,arrears:Math.max(0,Math.min(10000000,Number(saved.housing.arrears)||0)),gameDay:Math.max(1,Math.floor(Number(saved.housing.gameDay)||1)),lastBilledDay:Math.max(1,Math.floor(Number(saved.housing.lastBilledDay)||1))};}
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
     if(saved.education&&typeof saved.education==='object')lifeState.education={courseId:typeof saved.education.courseId==='string'?saved.education.courseId:null,remaining:Math.max(0,Math.min(600,Number(saved.education.remaining)||0)),certificates:Array.isArray(saved.education.certificates)?saved.education.certificates.filter(x=>typeof x==='string').slice(0,30):[]};
@@ -3232,19 +3232,21 @@ function housingLedger(type,label,amount){
 function processHousingBilling(){
  const h=lifeState.housing;if(!h)return;
  const occupied=h.lease?getHousingDoor(h.lease.doorId):h.ownedDoorId?getHousingDoor(h.ownedDoorId):null;
- if(!occupied||h.gameDay-(h.lastBilledDay||h.gameDay)<7)return;
- const candidate=getHousingCandidates().find(x=>x.door.id===occupied.id);
- const utilities=candidate?candidate.utilities:900;
- const rent=h.lease?Math.max(0,h.lease.rent):0;
- const total=rent+utilities;
- h.lastBilledDay=h.gameDay;
- if(lifeState.money>=total){
-  lifeState.money-=total;housingLedger('debit',h.lease?'Loyer + factures du logement':'Factures du logement',total);
-  showMessage('🏠 Charges réglées : '+total.toLocaleString('fr-FR')+' FCFA.');
- }else{
-  h.arrears=(h.arrears||0)+total;
-  showMessage('⚠️ Charges impayées : '+total.toLocaleString('fr-FR')+' FCFA ajoutés à tes impayés.');
+ if(!occupied)return;
+ let last=Math.max(1,Math.floor(Number(h.lastBilledDay)||h.gameDay)),processed=0,paid=0,unpaid=0;
+ while(h.gameDay-last>=7&&processed<520){
+  last+=7;processed++;
+  const candidate=getHousingCandidates().find(x=>x.door.id===occupied.id);
+  const utilities=candidate?candidate.utilities:900;
+  const rent=h.lease?Math.max(0,h.lease.rent):0;
+  const total=rent+utilities;
+  if(lifeState.money>=total){lifeState.money-=total;paid+=total;housingLedger('debit',h.lease?'Loyer + factures du logement':'Factures du logement',total);}
+  else{h.arrears=(h.arrears||0)+total;unpaid+=total;}
  }
+ if(!processed)return;
+ h.lastBilledDay=last;
+ if(paid)showMessage('🏠 Charges réglées : '+paid.toLocaleString('fr-FR')+' FCFA.');
+ if(unpaid)showMessage('⚠️ '+unpaid.toLocaleString('fr-FR')+' FCFA de charges ajoutés aux impayés.');
  saveLifeProgress(false);
 }
 function renderHousingApp(){
@@ -3253,14 +3255,14 @@ function renderHousingApp(){
  const owned=h.ownedDoorId?getHousingDoor(h.ownedDoorId):null,lease=h.lease?getHousingDoor(h.lease.doorId):null;
  const current=owned||lease;
  const candidates=getHousingCandidates();
- const status=current?'<div style="padding:12px;border-radius:12px;background:#ffffff12;margin:10px 0"><b>'+(owned?'🏡 Propriétaire':'🔑 Locataire')+' · '+escapeHTML(current.buildingName||'Logement à Abidjan')+'</b><p style="font-size:11px;margin:6px 0">Adresse de jeu : '+(current.id)+' · Journée '+h.gameDay+'</p>'+(lease?'<p>Loyer hebdomadaire : '+leaseRent().toLocaleString('fr-FR')+' FCFA</p>':'<p>Tu possèdes ce logement. Seules les factures restent à payer.</p>')+'<p>Impayés : <b style="color:'+(h.arrears?'#ffb0a0':'#8ce0a4')+'">'+Math.floor(h.arrears||0).toLocaleString('fr-FR')+' FCFA</b></p><button id="housingPay" '+(!(h.arrears>0)||lifeState.money<h.arrears?'disabled':'')+'>Régler les impayés</button>'+(lease?'<button id="housingEndLease">Résilier le bail</button>':'')+(owned?'<button id="housingSell">Revendre (70 %)</button>':'')+'</div>':'<p style="padding:10px;background:#ffffff12;border-radius:10px">Tu n’as pas encore de logement à ton nom. Tu peux louer un logement ou économiser pour en acheter un.</p>';
+ const status=current?'<div style="padding:12px;border-radius:12px;background:#ffffff12;margin:10px 0"><b>'+(owned?'🏡 Propriétaire':'🔑 Locataire')+' · '+escapeHTML(current.buildingName||'Logement à Abidjan')+'</b><p style="font-size:11px;margin:6px 0">Adresse de jeu : '+(current.id)+' · Journée '+h.gameDay+'</p>'+(lease?'<p>Loyer hebdomadaire : '+leaseRent().toLocaleString('fr-FR')+' FCFA</p>':'<p>Tu possèdes ce logement. Seules les factures restent à payer.</p>')+'<p>Impayés : <b style="color:'+(h.arrears?'#ffb0a0':'#8ce0a4')+'">'+Math.floor(h.arrears||0).toLocaleString('fr-FR')+' FCFA</b></p><button id="housingPay" '+(!(h.arrears>0)||lifeState.money<h.arrears?'disabled':'')+'>Régler les impayés</button>'+(lease?'<button id="housingEndLease">Résilier le bail</button>':'')+(owned?'<button id="housingSell">Revendre (70 %)</button>':'')+'</div>':'<p style="padding:10px;background:#ffffff12;border-radius:10px">Tu n’as pas encore de logement à ton nom. Tu peux louer un logement ou économiser pour en acheter un.</p>'+(h.arrears>0?'<p>Anciennes charges impayées : <b>'+Math.floor(h.arrears).toLocaleString('fr-FR')+' FCFA</b></p><button id="housingPay" '+(lifeState.money<h.arrears?'disabled':'')+'>Régler les impayés</button>':'');
  const list=candidates.slice(0,10).map(x=>'<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><b>🏠 '+escapeHTML(x.door.buildingName||'Maison à Abidjan')+'</b><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+(x.distance===null?'Distance inconnue':x.distance.toLocaleString('fr-FR')+' m')+' · '+Math.round(x.area)+' m² environ</div><div style="font-size:12px;margin:5px 0">Loyer : <b>'+x.rent.toLocaleString('fr-FR')+' F / semaine</b> · Dépôt : '+(x.rent*2).toLocaleString('fr-FR')+' F</div><div style="font-size:12px;margin:5px 0">Achat : <b>'+x.price.toLocaleString('fr-FR')+' FCFA</b></div><button data-housing-rent="'+escapeHTML(x.door.id)+'" '+(current?'disabled':'')+'>Louer</button><button data-housing-buy="'+escapeHTML(x.door.id)+'" '+(current?'disabled':'')+'>Acheter</button></article>').join('');
  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏠 Logement ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b> · Journée '+h.gameDay+'</p><p style="font-size:11px;color:#c6d8e5">Les logements sont reliés aux portes résidentielles du monde. Le loyer et les factures sont simulés et enregistrés dans ta banque.</p>'+status+'<h4>Logements disponibles</h4>'+list+'<p id="housingStatus" style="font-size:12px;color:#ffe0a0;min-height:20px"></p>';
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
  content.querySelectorAll('[data-housing-rent]').forEach(btn=>btn.onclick=()=>{
   const x=candidates.find(v=>v.door.id===btn.dataset.housingRent);if(!x)return;
   const deposit=x.rent*2;if(lifeState.money<deposit){document.getElementById('housingStatus').textContent='Solde insuffisant : il faut '+deposit.toLocaleString('fr-FR')+' FCFA pour le dépôt de garantie.';return;}
-  lifeState.money-=deposit;h.lease={doorId:x.door.id,rent:x.rent,startedDay:h.gameDay};h.ownedDoorId=null;h.lastBilledDay=h.gameDay;housingLedger('debit','Dépôt de garantie · '+(x.door.buildingName||'Logement'),deposit);saveLifeProgress(false);renderHousingApp();showMessage('🔑 Bail signé. Ton logement est enregistré.');
+  lifeState.money-=deposit;h.lease={doorId:x.door.id,rent:x.rent,deposit,startedDay:h.gameDay};h.ownedDoorId=null;h.lastBilledDay=h.gameDay;housingLedger('debit','Dépôt de garantie · '+(x.door.buildingName||'Logement'),deposit);saveLifeProgress(false);renderHousingApp();showMessage('🔑 Bail signé. Ton logement est enregistré.');
  });
  content.querySelectorAll('[data-housing-buy]').forEach(btn=>btn.onclick=()=>{
   const x=candidates.find(v=>v.door.id===btn.dataset.housingBuy);if(!x)return;
@@ -3268,7 +3270,7 @@ function renderHousingApp(){
   lifeState.money-=x.price;h.ownedDoorId=x.door.id;h.lease=null;h.arrears=0;h.lastBilledDay=h.gameDay;housingLedger('debit','Achat · '+(x.door.buildingName||'Logement'),x.price);saveLifeProgress(false);renderHousingApp();showMessage('🏡 Félicitations ! Tu es propriétaire de ce logement.');
  });
  const pay=document.getElementById('housingPay');if(pay)pay.onclick=()=>{const due=Math.floor(h.arrears||0);if(due<=0||lifeState.money<due)return;lifeState.money-=due;h.arrears=0;housingLedger('debit','Règlement des charges en retard',due);saveLifeProgress(false);renderHousingApp();showMessage('✅ Tes impayés sont réglés.');};
- const end=document.getElementById('housingEndLease');if(end)end.onclick=()=>{if(!confirm('Résilier ton bail ? Le dépôt de garantie n’est pas remboursé dans cette version.'))return;h.lease=null;h.arrears=0;saveLifeProgress(false);renderHousingApp();showMessage('Bail résilié.');};
+ const end=document.getElementById('housingEndLease');if(end)end.onclick=()=>{if(!confirm('Résilier ton bail ? Le dépôt de garantie sera d’abord utilisé pour couvrir les charges impayées, puis le reste te sera remboursé.'))return;const deposit=Math.max(0,Number(h.lease&&h.lease.deposit)||leaseRent()*2),offset=Math.min(deposit,Math.max(0,h.arrears||0)),refund=deposit-offset;h.arrears=Math.max(0,(h.arrears||0)-offset);h.lease=null;if(offset)housingLedger('debit','Dépôt affecté aux charges impayées',offset);if(refund){lifeState.money+=refund;housingLedger('credit','Remboursement du dépôt de garantie',refund);}saveLifeProgress(false);renderHousingApp();showMessage('Bail résilié. Dépôt remboursé : '+refund.toLocaleString('fr-FR')+' FCFA.');};
  const sell=document.getElementById('housingSell');if(sell)sell.onclick=()=>{const x=candidates.find(v=>v.door.id===h.ownedDoorId);if(!x)return;const refund=Math.round(x.price*.7);lifeState.money+=refund;h.ownedDoorId=null;housingLedger('credit','Revente du logement',refund);saveLifeProgress(false);renderHousingApp();showMessage('Logement revendu : '+refund.toLocaleString('fr-FR')+' FCFA récupérés.');};
 }
 function leaseRent(){return lifeState.housing&&lifeState.housing.lease?lifeState.housing.lease.rent:0;}
