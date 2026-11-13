@@ -2693,6 +2693,7 @@ function updateNPCs(delta) {
     d.vehicleCheckTimer=(d.vehicleCheckTimer||0)-delta;
     if(d.vehicleCheckTimer<=0){d.vehicleCheckTimer=.22;d.nearVehicle=vehicles.some(v=>!v.userData.wreck&&Math.hypot(v.position.x-npc.position.x,v.position.z-npc.position.z)<4.1);}
     if(d.nearVehicle){d.pauseTimer=Math.max(d.pauseTimer||0,.3);animateCharacter(npc,delta,false);return;}
+    if(d.transitWaiting){animateCharacter(npc,delta,false);return;}
     if(d.pauseTimer>0){d.pauseTimer-=delta;animateCharacter(npc,delta,false);return;}
     d.changeTimer-=delta;
     if(d.changeTimer<=0){
