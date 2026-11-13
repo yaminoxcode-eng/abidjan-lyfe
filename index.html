@@ -177,7 +177,7 @@
     <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
-    <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
+    <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
@@ -2964,6 +2964,27 @@ function renderCreatorApp(platform){
  const cert=document.getElementById('creatorCertify');if(cert)cert.onclick=()=>{const name=document.getElementById('creatorName').value.trim();if(name.length<3||!document.getElementById('creatorConsent').checked){showMessage('Saisis un pseudo (3 caractères minimum) et confirme la création.');return;}c.certified=true;c.displayName=name;saveLifeProgress(false);renderCreatorApp(platform);};
  const publish=document.getElementById('creatorPublish');if(publish)publish.onclick=()=>{const idx=Number(document.getElementById('creatorMedia').value),media=gallery[idx],caption=document.getElementById('creatorCaption').value.trim();if(!media||!caption){showMessage('Choisis une photo et écris une légende.');return;}const day=Math.floor((c.posts.length+1));const views=yt?80+Math.floor(Math.random()*420):100+Math.floor(Math.random()*900);c.posts.push({platform,caption,kind:'Photo',views,date:String(lifeState.hour).padStart(2,'0')+'h'+String(Math.floor(lifeState.minute)).padStart(2,'0'),mediaName:String(media.name||'Photo').slice(0,80)});if(yt)c.youtubeFollowers+=Math.max(1,Math.floor(views/45));else c.tiktokFollowers+=Math.max(1,Math.floor(views/80));saveLifeProgress(false);renderCreatorApp(platform);showMessage('Publication en ligne ! +'+views+' vues simulées.');};
 }
+const ABJ_GOOGLE_INDEX=[
+ {title:'Se déplacer dans Abidjan',kind:'Guide',body:'Utilise l’application Transport pour repérer les arrêts SOTRA, gbaka et taxis proches de ta position.',keywords:'bus gbaka taxi sotra arrêt transport'},
+ {title:'Trouver un emploi',kind:'Emploi',body:'Ouvre Emploi pour consulter les métiers disponibles et commencer une activité rémunérée.',keywords:'travail emploi métier salaire argent'},
+ {title:'Gérer son argent',kind:'Banque',body:'L’application Banque ABJ affiche ton portefeuille et tes transactions de simulation.',keywords:'banque argent portefeuille wave retrait dépôt'},
+ {title:'Rencontrer les habitants',kind:'Vie sociale',body:'Approche un PNJ et appuie sur E pour discuter. Les personnes rencontrées apparaissent dans Contacts.',keywords:'amis contact pnj relation discuter social'},
+ {title:'Envoyer un message',kind:'Téléphone',body:'Ouvre Messages pour écrire aux habitants que tu as déjà rencontrés.',keywords:'sms message écrire téléphone'},
+ {title:'Publier une photo ou vidéo',kind:'Réseaux sociaux',body:'Prends une photo avec Caméra, puis publie-la depuis YouTube ou TikTok après avoir créé ton compte.',keywords:'photo caméra vidéo youtube tiktok publication'},
+ {title:'Acheter des produits',kind:'Commerce',body:'La Boutique ABJ propose un premier catalogue de produits. Les achats sont ajoutés à ton sac.',keywords:'acheter boutique nourriture boisson inventaire sac'},
+ {title:'Consulter ses photos',kind:'Galerie',body:'Tes photos prises dans le jeu sont accessibles dans Galerie.',keywords:'photo galerie image'},
+ {title:'Explorer Abidjan',kind:'Ville',body:'Explore les quartiers, repères et arrêts autour de ta position. La carte intégrée montre le monde du jeu.',keywords:'quartier commune carte localisation abidjan'},
+ {title:'Bien-être du personnage',kind:'Simulation',body:'Surveille les jauges de faim, énergie et social. Utilise les produits de ton sac pour répondre à certains besoins.',keywords:'faim énergie social besoin santé'}
+];
+function renderGoogleApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🔎 Google ABJ</h3><p style="font-size:12px;color:#c6d8e5">Recherche dans le guide et les services disponibles dans Abidjan Life.</p><input id="googleQuery" type="search" placeholder="Rechercher un lieu, un service, une aide…" style="width:100%;box-sizing:border-box;padding:11px;border-radius:9px;border:1px solid #ffffff40;background:#102b3b;color:white"><div id="googleResults" style="margin-top:10px"></div>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ const field=document.getElementById('googleQuery'),results=document.getElementById('googleResults');
+ const draw=()=>{const q=field.value.trim().toLocaleLowerCase('fr');const found=ABJ_GOOGLE_INDEX.filter(x=>(x.title+' '+x.kind+' '+x.body+' '+x.keywords).toLocaleLowerCase('fr').includes(q));results.innerHTML=q?(found.length?found.map(x=>'<article style="padding:10px;margin:8px 0;border:1px solid #ffffff25;border-radius:10px;background:#ffffff0b"><div style="font-size:10px;color:#91d8d3">'+escapeHTML(x.kind)+'</div><b>'+escapeHTML(x.title)+'</b><p style="font-size:12px;color:#d4e0e9;margin:6px 0">'+escapeHTML(x.body)+'</p></article>').join(''):'<p>Aucun résultat dans le guide du jeu. Essaie un autre mot.</p>'):'<b>Suggestions</b>'+ABJ_GOOGLE_INDEX.slice(0,5).map(x=>'<div style="padding:8px;border-bottom:1px solid #ffffff18"><b>'+escapeHTML(x.title)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(x.kind)+'</div></div>').join('');};
+ field.addEventListener('input',draw);draw();field.focus();
+}
+
 function renderBankApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
@@ -3016,6 +3037,7 @@ function openPhoneApp(app){
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
   if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
+  if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
