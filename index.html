@@ -2940,16 +2940,19 @@ function buildYangoRoadPath(sx,sz,tx,tz){
  if(!trafficGraph||trafficGraph.size<2)return null;
  const start=nearestTrafficNode(sx,sz),goal=nearestTrafficNode(tx,tz);if(!start||!goal)return null;
  const parse=k=>{const [x,z]=k.split(':').map(Number);return {x,z};};
- const g=new Map([[start,0]]),prev=new Map(),open=[{key:start,f:Math.hypot(parse(start).x-parse(goal).x,parse(start).z-parse(goal).z)}],closed=new Set();
+ const goalPoint=parse(goal),g=new Map([[start,0]]),prev=new Map(),open=[],closed=new Set();
+ const push=item=>{let i=open.length;open.push(item);while(i>0){const p=(i-1)>>1;if(open[p].f<=item.f)break;open[i]=open[p];i=p;}open[i]=item;};
+ const pop=()=>{const first=open[0],last=open.pop();if(open.length){let i=0;while(true){let c=i*2+1;if(c>=open.length)break;if(c+1<open.length&&open[c+1].f<open[c].f)c++;if(open[c].f>=last.f)break;open[i]=open[c];i=c;}open[i]=last;}return first;};
+ push({key:start,f:Math.hypot(parse(start).x-goalPoint.x,parse(start).z-goalPoint.z)});
  let found=false,steps=0;
  while(open.length&&steps++<30000){
-  open.sort((a,b)=>a.f-b.f);const cur=open.shift();if(closed.has(cur.key))continue;
+  const cur=pop();if(closed.has(cur.key))continue;
   if(cur.key===goal){found=true;break;}closed.add(cur.key);
   const base=g.get(cur.key),p=parse(cur.key);
   for(const edge of trafficGraph.get(cur.key)||[]){
    const q=edge.forward?edge.seg.b:edge.seg.a,next=trafficNodeKey(q);if(closed.has(next))continue;
    const cost=Math.hypot(q.x-p.x,q.z-p.z),tent=base+cost;
-   if(tent<(g.get(next)??Infinity)){g.set(next,tent);prev.set(next,cur.key);const h=Math.hypot(q.x-parse(goal).x,q.z-parse(goal).z);open.push({key:next,f:tent+h});}
+   if(tent<(g.get(next)??Infinity)){g.set(next,tent);prev.set(next,cur.key);const h=Math.hypot(q.x-goalPoint.x,q.z-goalPoint.z);push({key:next,f:tent+h});}
   }
  }
  if(!found)return null;
