@@ -179,7 +179,7 @@
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
-    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button>
+    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
     <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
@@ -297,7 +297,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2587,7 +2587,7 @@ function interactWithFurniture(){
 }
 
 function updatePlayer(delta) {
-  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen || elevatorMenuOpen || elevatorTravel || cameraMode) return;
+  if (!player || !worldReady || dialogOpen || panelOpen || mapOpen || elevatorMenuOpen || elevatorTravel || cameraMode || activeYangoRide) return;
   // Comme dans Les Sims : une fois assis/allongé, le personnage reste immobilisé
   // jusqu'à l'action explicite « Se relever » avec F.
   if(playerSitting){ keys['z']=keys['w']=keys['q']=keys['a']=keys['s']=keys['d']=keys['arrowup']=keys['arrowdown']=keys['arrowleft']=keys['arrowright']=keys['shift']=false; return; }
@@ -2751,6 +2751,7 @@ function loadLifeProgress(){
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
+    if(saved.documents&&typeof saved.documents==='object'&&!Array.isArray(saved.documents))lifeState.documents=Object.fromEntries(Object.entries(saved.documents).filter(([k,v])=>typeof k==='string'&&v&&typeof v.issuedAt==='string').slice(0,30));
     if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,80));
     if(saved.homeDecor&&typeof saved.homeDecor==='object'&&!Array.isArray(saved.homeDecor)){lifeState.homeDecor={};for(const [key,list] of Object.entries(saved.homeDecor)){if(typeof key==='string'&&Array.isArray(list))lifeState.homeDecor[key]=list.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.x)&&Number.isFinite(x.z)&&Number.isInteger(x.floor)).slice(0,40);}}
     if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
@@ -2762,7 +2763,7 @@ function saveLifeProgress(show=true){
   try{
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
-      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
+      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,
       job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,
       savedAt:new Date().toISOString()
     }));
@@ -2993,6 +2994,23 @@ function renderTransportApp(){
   document.getElementById('transportRefresh').onclick=renderTransportApp;
   document.getElementById('transportMap').onclick=()=>{closePhone();openBigMap();};
 }
+
+const ABJ_ADMIN_SERVICES=[
+ {id:'birth',name:'Extrait d’acte de naissance',price:1000,description:'Document de base pour constituer ton dossier.',requires:[]},
+ {id:'cni',name:'Carte nationale d’identité',price:3000,description:'Pièce d’identité de ton personnage.',requires:['birth']},
+ {id:'residence',name:'Attestation de résidence',price:1500,description:'Justificatif administratif de domicile.',requires:['cni']},
+ {id:'permit',name:'Permis de conduire',price:15000,description:'Autorisation de conduire dans la simulation.',requires:['cni']}
+];
+function renderMairieApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const docs=lifeState.documents||{};
+ const issued=ABJ_ADMIN_SERVICES.filter(x=>docs[x.id]).map(x=>'<div style="padding:9px;margin:6px 0;border:1px solid #8ce0a455;border-radius:9px;background:#8ce0a411"><b>✓ '+escapeHTML(x.name)+'</b><div style="font-size:11px;color:#c6d8e5">Délivré le '+escapeHTML(docs[x.id].issuedAt)+'</div></div>').join('');
+ const cards=ABJ_ADMIN_SERVICES.map(x=>{const done=!!docs[x.id],missing=x.requires.filter(id=>!docs[id]),disabled=done||missing.length>0||lifeState.money<x.price;return '<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(x.name)+'</b><b style="white-space:nowrap;color:#ffe0a0">'+x.price.toLocaleString('fr-FR')+' F</b></div><p style="font-size:11px;color:#c6d8e5">'+escapeHTML(x.description)+'</p><div style="font-size:11px;color:'+(done?'#8ce0a4':'#c6d8e5')+';margin:5px 0">'+(done?'Document déjà délivré':missing.length?'Prérequis : '+missing.map(id=>ABJ_ADMIN_SERVICES.find(a=>a.id===id).name).join(', '):'Dossier prêt')+'</div><button data-admin="'+x.id+'" '+(disabled?'disabled':'')+'>'+(done?'Déjà obtenu':'Faire la démarche')+'</button></article>';}).join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏛️ Mairie et documents ABJ</h3><p style="font-size:12px;color:#c6d8e5">Services administratifs fictifs pour la progression de ton personnage. Les documents sont conservés dans ta sauvegarde de jeu.</p><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><h4>Mes documents</h4>'+(issued||'<p>Aucun document obtenu pour le moment.</p>')+'<h4>Démarches disponibles</h4>'+cards+'<p id="adminStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-admin]').forEach(btn=>btn.onclick=()=>{const item=ABJ_ADMIN_SERVICES.find(x=>x.id===btn.dataset.admin);if(!item||docs[item.id]||item.requires.some(id=>!docs[id]))return;if(lifeState.money<item.price){const st=document.getElementById('adminStatus');if(st)st.textContent='Solde insuffisant.';return;}lifeState.money-=item.price;const stamp=String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0');lifeState.documents[item.id]={issuedAt:stamp};lifeState.bankTransactions.push({type:'debit',label:'Mairie : '+item.name,amount:item.price,date:stamp});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderMairieApp();const st=document.getElementById('adminStatus');if(st)st.textContent=item.name+' ajouté à tes documents.';});
+}
+
 const ABJ_JOBS=[
   {name:'Vendeur / vendeuse',sector:'Commerce',salary:1200,start:8,end:18},
   {name:'Livreur à moto',sector:'Livraison',salary:1800,start:7,end:20},
@@ -3202,6 +3220,7 @@ function openPhoneApp(app){
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
   if(app==='yango'){apps.style.display='none';content.style.display='block';renderYangoApp();return;}
+  if(app==='mairie'){apps.style.display='none';content.style.display='block';renderMairieApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
@@ -3212,12 +3231,12 @@ function openPhoneApp(app){
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
-    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',
+    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',mairie:'Demande et conserve tes documents administratifs dans ta partie.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Achète des produits et retrouve-les dans ton sac.',jumia:'Achète des meubles et installe-les dans ton logement.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
