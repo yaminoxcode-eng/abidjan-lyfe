@@ -2946,9 +2946,10 @@ const ABJ_SHOP_ITEMS=[
 function renderInventoryApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
  const entries=Object.entries(lifeState.inventory||{}).filter(([id,n])=>n>0);
- const rows=entries.map(([id,n])=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===id);return it?'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px;border-bottom:1px solid #ffffff20"><div><b>'+escapeHTML(it.name)+'</b><div style="font-size:11px;color:#c6d8e5">Quantité : '+n+'</div></div><button data-use="'+it.id+'">Utiliser</button></div>':'';}).join('');
+ const rows=entries.map(([id,n])=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===id)||ABJ_JUMIA_ITEMS.find(x=>x.id===id);if(!it)return '';const isFurniture=id.startsWith('jumia-');return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px;border-bottom:1px solid #ffffff20"><div><b>'+escapeHTML(it.name)+'</b><div style="font-size:11px;color:#c6d8e5">Quantité : '+n+(isFurniture?' · Meuble à installer':'')+'</div></div>'+(isFurniture?'<button data-jumia-view>Voir installation</button>':'<button data-use="'+it.id+'">Utiliser</button>')+'</div>';}).join('');
  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🎒 Mon sac</h3>'+(rows||'<p>Ton inventaire est vide. Visite la boutique pour acheter des articles.</p>');
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-jumia-view]').forEach(btn=>btn.onclick=()=>renderJumiaApp());
  content.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.use);if(!it||!lifeState.inventory[it.id])return;if(it.hunger)lifeState.hunger=Math.min(100,lifeState.hunger+it.hunger);if(it.energy)lifeState.energy=Math.min(100,lifeState.energy+it.energy);if(it.social)lifeState.social=Math.min(100,lifeState.social+it.social);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];saveLifeProgress(false);renderInventoryApp();});
 }
 
