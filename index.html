@@ -2438,9 +2438,9 @@ function createCharacter(opts) {
   const pants = opts.pants || 0x2c3e50;
   const female=opts.gender==='femme';
   const torso = new THREE.Mesh(new THREE.CylinderGeometry(female?0.25:0.27, female?0.29:0.32, 0.72, 10), new THREE.MeshLambertMaterial({ color: shirt }));
-  torso.position.y = 1.35; torso.castShadow = true; g.add(torso);
+  torso.position.y = 1.35; torso.castShadow = true; torso.userData.clothingPart='shirt'; g.add(torso);
   const hips = new THREE.Mesh(new THREE.CylinderGeometry(female?0.31:0.28, female?0.31:0.28, 0.32, 10), new THREE.MeshLambertMaterial({ color: pants }));
-  hips.position.y = 0.9; hips.castShadow = true; g.add(hips);
+  hips.position.y = 0.9; hips.castShadow = true; hips.userData.clothingPart='pants'; g.add(hips);
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.18, 8), new THREE.MeshLambertMaterial({ color: skin }));
   neck.position.y = 1.8; g.add(neck);
   const headGroup = new THREE.Group();
@@ -2453,7 +2453,7 @@ function createCharacter(opts) {
   function makeArm(side) {
     const a = new THREE.Group();
     const u = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.48, 8), new THREE.MeshLambertMaterial({ color: shirt }));
-    u.position.y = -0.24; u.castShadow = true; a.add(u);
+    u.position.y = -0.24; u.castShadow = true; u.userData.clothingPart='shirt'; a.add(u);
     const l = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.48, 8), new THREE.MeshLambertMaterial({ color: skin }));
     l.position.y = -0.72; l.castShadow = true; a.add(l);
     a.position.set(side * 0.36, 1.6, 0); g.add(a);
@@ -2463,9 +2463,9 @@ function createCharacter(opts) {
   function makeLeg(side) {
     const l = new THREE.Group();
     const u = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.48, 8), new THREE.MeshLambertMaterial({ color: pants }));
-    u.position.y = -0.24; u.castShadow = true; l.add(u);
+    u.position.y = -0.24; u.castShadow = true; u.userData.clothingPart='pants'; l.add(u);
     const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.48, 8), new THREE.MeshLambertMaterial({ color: pants }));
-    lo.position.y = -0.72; lo.castShadow = true; l.add(lo);
+    lo.position.y = -0.72; lo.castShadow = true; lo.userData.clothingPart='pants'; l.add(lo);
     l.position.set(side * 0.14, 0.85, 0); g.add(l);
     return l;
   }
@@ -2474,6 +2474,7 @@ function createCharacter(opts) {
   return g;
 }
 
+function applyPlayerClothing(){if(!player||!lifeState.playerProfile)return;const shirt=lifeState.playerProfile.shirt||0xe74c3c,pants=lifeState.playerProfile.pants||0x2c3e50;player.traverse(o=>{if(!o.isMesh||!o.userData.clothingPart)return;o.material.color.setHex(o.userData.clothingPart==='shirt'?shirt:pants);});}
 function createPlayer() {
   const profile=lifeState.playerProfile||{};
   player = createCharacter({ shirt: profile.shirt||0xe74c3c, pants: profile.pants||0x2c3e50, skin: profile.skin||0x7a4a24, hair:profile.hair||0x17120f, gender:profile.gender||'homme' });
@@ -3322,12 +3323,16 @@ function restoreHomeDecor(interior){
   interior.decorLoaded.add(sig);
  });
 }
+
+const ABJ_JUMIA_FASHION=[{id:'mode-tshirt',name:'T-shirt urbain',price:6500,kind:'shirt',color:0x2878b8,emoji:'👕',description:'T-shirt casual pour les sorties en ville.'},{id:'mode-polo',name:'Polo classique',price:8500,kind:'shirt',color:0x2e9b62,emoji:'👔',description:'Polo pour le travail et les rendez-vous.'},{id:'mode-chemise',name:'Chemise élégante',price:12500,kind:'shirt',color:0xe9e2d2,emoji:'👔',description:'Chemise habillée pour les occasions.'},{id:'mode-jean',name:'Jean denim',price:11000,kind:'pants',color:0x263d69,emoji:'👖',description:'Jean résistant pour le quotidien.'},{id:'mode-pantalon',name:'Pantalon de ville',price:13500,kind:'pants',color:0x252b32,emoji:'👖',description:'Pantalon sobre pour le bureau.'}];
 function renderJumiaApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
  const cards=ABJ_JUMIA_ITEMS.map(it=>'<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="white-space:nowrap;color:#ffe0a0">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.description)+'</div><button data-jumia-buy="'+it.id+'">Commander</button></article>').join('');
+ const fashionCards=ABJ_JUMIA_FASHION.map(it=>'<article style="display:flex;gap:10px;align-items:center;padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="font-size:34px">'+it.emoji+'</div><div style="flex:1"><b>'+escapeHTML(it.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(it.description)+'</div><b style="color:#ffe0a0">'+it.price.toLocaleString('fr-FR')+' FCFA</b><div><button data-fashion-buy="'+it.id+'">Acheter et porter</button></div></div></article>').join('');
  const count=ABJ_JUMIA_ITEMS.reduce((n,it)=>n+(lifeState.inventory[it.id]||0),0);
- content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛋️ Jumia Maison ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b> · Meubles dans le sac : '+count+'</p><p style="font-size:11px;color:#c6d8e5">Achats simulés en FCFA. Les meubles achetés peuvent être installés dans le logement où tu te trouves.</p><h4>Catalogue maison</h4>'+cards+'<h4>Installation</h4><p>'+(currentInterior?'Tu es dans un intérieur. Choisis un meuble acheté puis installe-le près de ton personnage.':'Entre dans une maison ou un appartement pour installer tes meubles.')+'</p>'+ABJ_JUMIA_ITEMS.map(it=>'<button data-jumia-place="'+it.id+'" '+((lifeState.inventory[it.id]||0)<1||!currentInterior?'disabled':'')+'>Installer : '+escapeHTML(it.name)+' ('+(lifeState.inventory[it.id]||0)+')</button>').join('')+'<p id="jumiaStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p>';
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛋️ Jumia Maison ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b> · Meubles dans le sac : '+count+'</p><p style="font-size:11px;color:#c6d8e5">Achats simulés en FCFA. Les meubles achetés peuvent être installés dans le logement où tu te trouves.</p><h4>Catalogue maison</h4>'+cards+'<h4>Mode et vêtements</h4><p style="font-size:11px;color:#c6d8e5">Les vêtements achetés modifient la tenue du personnage et sont conservés dans sa sauvegarde.</p>'+fashionCards+'<h4>Installation</h4><p>'+(currentInterior?'Tu es dans un intérieur. Choisis un meuble acheté puis installe-le près de ton personnage.':'Entre dans une maison ou un appartement pour installer tes meubles.')+'</p>'+ABJ_JUMIA_ITEMS.map(it=>'<button data-jumia-place="'+it.id+'" '+((lifeState.inventory[it.id]||0)<1||!currentInterior?'disabled':'')+'>Installer : '+escapeHTML(it.name)+' ('+(lifeState.inventory[it.id]||0)+')</button>').join('')+'<p id="jumiaStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p>';
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-fashion-buy]').forEach(btn=>btn.onclick=()=>{const it=ABJ_JUMIA_FASHION.find(x=>x.id===btn.dataset.fashionBuy);if(!it)return;if(lifeState.money<it.price){const st=document.getElementById('jumiaStatus');if(st)st.textContent='Solde insuffisant pour cet achat.';return;}lifeState.money-=it.price;lifeState.playerProfile=lifeState.playerProfile||{};lifeState.playerProfile[it.kind]=it.color;applyPlayerClothing();lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;lifeState.bankTransactions.push({type:'debit',label:'Jumia Mode : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderJumiaApp();const st=document.getElementById('jumiaStatus');if(st)st.textContent=it.name+' acheté et porté.';});
  content.querySelectorAll('[data-jumia-buy]').forEach(btn=>btn.onclick=()=>{
   const it=ABJ_JUMIA_ITEMS.find(x=>x.id===btn.dataset.jumiaBuy);if(!it)return;
   if(lifeState.money<it.price){const st=document.getElementById('jumiaStatus');if(st)st.textContent='Solde insuffisant pour cet achat.';return;}
