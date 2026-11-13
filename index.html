@@ -142,7 +142,8 @@
   #phoneAppContent{display:none}#phoneAppContent button{border:1px solid #f4d28b;background:#243e52;color:white;border-radius:9px;padding:9px 12px;margin:5px 3px}
   @media(max-width:760px){#phone{right:10px;bottom:10px;width:290px;height:490px}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
-  #creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}\n</style>
+  #creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}
+</style>
 </head>
 <body>
 
@@ -173,7 +174,8 @@
     <div class="creatorActions"><button id="creatorCancel">Retour</button><button id="creatorStart">Entrer dans Abidjan</button></div>
     <p class="creatorNote">Tu pourras retrouver et modifier ton apparence dans une prochaine mise à jour.</p>
   </div>
-</div>\n<div id="lifeHud" aria-label="Besoins du personnage">
+</div>
+<div id="lifeHud" aria-label="Besoins du personnage">
   <span id="lifeMood">🙂</span>
   <div class="lifeNeed"><label>Faim</label><div class="lifeTrack"><div id="hungerFill" class="lifeFill"></div></div></div>
   <div class="lifeNeed"><label>Énergie</label><div class="lifeTrack"><div id="energyFill" class="lifeFill"></div></div></div>
@@ -2381,7 +2383,8 @@ function createCharacter(opts) {
   const skin = opts.skin || skinTones[Math.floor(Math.random() * skinTones.length)];
   const shirt = opts.shirt || 0xff6b6b;
   const pants = opts.pants || 0x2c3e50;
-  const female=opts.gender==='femme';\n  const torso = new THREE.Mesh(new THREE.CylinderGeometry(female?0.25:0.27, female?0.29:0.32, 0.72, 10), new THREE.MeshLambertMaterial({ color: shirt }));
+  const female=opts.gender==='femme';
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(female?0.25:0.27, female?0.29:0.32, 0.72, 10), new THREE.MeshLambertMaterial({ color: shirt }));
   torso.position.y = 1.35; torso.castShadow = true; g.add(torso);
   const hips = new THREE.Mesh(new THREE.CylinderGeometry(female?0.31:0.28, female?0.31:0.28, 0.32, 10), new THREE.MeshLambertMaterial({ color: pants }));
   hips.position.y = 0.9; hips.castShadow = true; g.add(hips);
@@ -2419,7 +2422,9 @@ function createCharacter(opts) {
 }
 
 function createPlayer() {
-  const profile=lifeState.playerProfile||{};\n  player = createCharacter({ shirt: profile.shirt||0xe74c3c, pants: profile.pants||0x2c3e50, skin: profile.skin||0x7a4a24, hair:profile.hair||0x17120f, gender:profile.gender||'homme' });\n  player.userData.displayName=profile.name||'Mon personnage';
+  const profile=lifeState.playerProfile||{};
+  player = createCharacter({ shirt: profile.shirt||0xe74c3c, pants: profile.pants||0x2c3e50, skin: profile.skin||0x7a4a24, hair:profile.hair||0x17120f, gender:profile.gender||'homme' });
+  player.userData.displayName=profile.name||'Mon personnage';
   player.position.set(-420, 0.02, -390);
   player.rotation.y = 0;
   movementState.onGround = true;
@@ -2819,7 +2824,9 @@ function loadLifeProgress(){
     if(saved.homeDecor&&typeof saved.homeDecor==='object'&&!Array.isArray(saved.homeDecor)){lifeState.homeDecor={};for(const [key,list] of Object.entries(saved.homeDecor)){if(typeof key==='string'&&Array.isArray(list))lifeState.homeDecor[key]=list.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.x)&&Number.isFinite(x.z)&&Number.isInteger(x.floor)).slice(0,40);}}
     if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
     if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
-    if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);\n    if(saved.cheats&&typeof saved.cheats==='object')lifeState.cheats={money:!!saved.cheats.money,hunger:!!saved.cheats.hunger,energy:!!saved.cheats.energy};\n    if(saved.playerProfile&&typeof saved.playerProfile==='object')lifeState.playerProfile={name:String(saved.playerProfile.name||'Mon personnage').slice(0,24),gender:saved.playerProfile.gender==='femme'?'femme':'homme',skin:Number(saved.playerProfile.skin)||0x7a4a24,hair:Number(saved.playerProfile.hair)||0x17120f,shirt:Number(saved.playerProfile.shirt)||0xe74c3c,pants:Number(saved.playerProfile.pants)||0x2c3e50};
+    if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
+    if(saved.cheats&&typeof saved.cheats==='object')lifeState.cheats={money:!!saved.cheats.money,hunger:!!saved.cheats.hunger,energy:!!saved.cheats.energy};
+    if(saved.playerProfile&&typeof saved.playerProfile==='object')lifeState.playerProfile={name:String(saved.playerProfile.name||'Mon personnage').slice(0,24),gender:saved.playerProfile.gender==='femme'?'femme':'homme',skin:Number(saved.playerProfile.skin)||0x7a4a24,hair:Number(saved.playerProfile.hair)||0x17120f,shirt:Number(saved.playerProfile.shirt)||0xe74c3c,pants:Number(saved.playerProfile.pants)||0x2c3e50};
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
 function saveLifeProgress(show=true){
@@ -2850,7 +2857,10 @@ function updateLifeSimulation(delta){
   if(lifeState.hunger<5&&lifeState.energy<8)lifeState.health=Math.max(0,lifeState.health-delta*.025);
   lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
   if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
-  if(lifeState.cheats&&lifeState.cheats.money)lifeState.money=100000000;\n  if(lifeState.cheats&&lifeState.cheats.hunger)lifeState.hunger=100;\n  if(lifeState.cheats&&lifeState.cheats.energy)lifeState.energy=100;\n  lifeState.minute+=delta*5.2;
+  if(lifeState.cheats&&lifeState.cheats.money)lifeState.money=100000000;
+  if(lifeState.cheats&&lifeState.cheats.hunger)lifeState.hunger=100;
+  if(lifeState.cheats&&lifeState.cheats.energy)lifeState.energy=100;
+  lifeState.minute+=delta*5.2;
   while(lifeState.minute>=60){lifeState.minute-=60;const previousHour=lifeState.hour;lifeState.hour=(lifeState.hour+1)%24;if(previousHour===23){lifeState.housing=lifeState.housing||{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1};lifeState.housing.gameDay=(lifeState.housing.gameDay||1)+1;processHousingBilling();}}
   const pct=(v)=>Math.round(Math.max(0,Math.min(100,v)))+'%';
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.style.width=pct(v);};
@@ -3395,7 +3405,8 @@ function renderCheatApp(){
 function openPhoneApp(app){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
   if(!apps||!content)return;
-  if(app==='localisation'){closePhone();openBigMap();return;}\n  if(app==='cheats'){renderCheatApp();return;}
+  if(app==='localisation'){closePhone();openBigMap();return;}
+  if(app==='cheats'){renderCheatApp();return;}
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
