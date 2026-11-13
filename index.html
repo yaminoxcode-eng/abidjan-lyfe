@@ -972,7 +972,7 @@ function buildOSMNodePlaces(elements,nodes){
     if(isStop){
       if(!transportStops.some(st=>Math.hypot(st.x-p.x,st.z-p.z)<12)){
         const mode=t.amenity==='ferry_terminal'?'Bateau':t.amenity==='bus_station'||t.public_transport==='station'?'Gare / station':t.operator==='SOTRA'?'Bus SOTRA':t.highway==='bus_stop'?'Bus / gbaka':'Arrêt gbaka / bus';
-        transportStops.push({x:p.x,z:p.z,name,mode,operator:t.operator||'',commune:getCommuneZoneAt(p.x,p.z)?.name||'Abidjan'});
+        transportStops.push({id:'stop-'+Math.round(p.x*10)+'-'+Math.round(p.z*10),x:p.x,z:p.z,name,mode,operator:t.operator||'',commune:getCommuneZoneAt(p.x,p.z)?.name||'Abidjan'});
       }
     }
     if(seen.has(key))continue;seen.add(key);
@@ -1242,9 +1242,29 @@ function updateTrafficVehiclePose(v){
   v.position.set(x+rx*d.laneOffset,terrainHeight(x,z)+.03,z+rz*d.laneOffset);v.rotation.y=Math.atan2(dx,dz);
 }
 function handleTransitStop(v,stop){
-  const d=v.userData;if(!d.transit)return;d.passengers=d.passengers||[];
-  for(let i=d.passengers.length-1;i>=0;i--){const rider=d.passengers[i];rider.rideStops=(rider.rideStops||0)+1;if(rider.rideStops>=1&&Math.random()<.42){rider.npc.visible=true;rider.npc.position.set(stop.x+((Math.random()-.5)*5),terrainHeight(stop.x,stop.z)+.03,stop.z+((Math.random()-.5)*5));rider.npc.userData.transitRider=false;rider.npc.userData.transitTargetStop=null;rider.npc.userData.pauseTimer=2;d.passengers.splice(i,1);}}
-  for(const npc of npcs){if(d.passengers.length>=5)break;const n=npc.userData;if(!npc.visible||n.dead||!n.transitWaiting||!n.transitTargetStop)continue;if(Math.hypot(npc.position.x-stop.x,npc.position.z-stop.z)<14){npc.visible=false;n.transitWaiting=false;n.transitRider=true;n.transitTargetStop=null;n.pauseTimer=0;d.passengers.push({npc,rideStops:0});}}
+  const d=v.userData;if(!d.transit||!stop)return;d.passengers=d.passengers||[];
+  // Les passagers descendent uniquement après au moins deux arrêts : ils ne
+  // peuvent donc pas monter et descendre au même arrêt.
+  for(let i=d.passengers.length-1;i>=0;i--){
+    const rider=d.passengers[i];rider.rideStops=(rider.rideStops||0)+1;
+    if(rider.rideStops>=2&&Math.random()<.42){
+      rider.npc.visible=true;
+      rider.npc.position.set(stop.x+((Math.random()-.5)*5),terrainHeight(stop.x,stop.z)+.03,stop.z+((Math.random()-.5)*5));
+      rider.npc.userData.transitRider=false;rider.npc.userData.transitTargetStop=null;rider.npc.userData.transitWaiting=false;rider.npc.userData.pauseTimer=2;
+      d.passengers.splice(i,1);
+    }
+  }
+  // Un véhicule ne prend que les personnes qui attendent précisément à cet arrêt.
+  for(const npc of npcs){
+    if(d.passengers.length>=5)break;
+    const n=npc.userData;if(!npc.visible||n.dead||!n.transitWaiting||!n.transitTargetStop)continue;
+    const target=n.transitTargetStop;
+    const sameStop=target.id&&stop.id?target.id===stop.id:Math.hypot(target.x-stop.x,target.z-stop.z)<3;
+    if(sameStop&&Math.hypot(npc.position.x-stop.x,npc.position.z-stop.z)<9){
+      npc.visible=false;n.transitWaiting=false;n.transitRider=true;n.transitTargetStop=null;n.pauseTimer=0;
+      d.passengers.push({npc,rideStops:0});
+    }
+  }
 }
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
@@ -1254,7 +1274,7 @@ function advanceTrafficVehicle(v,delta){
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
     if(!stop)for(const npc of npcs){if(npc.userData.dead||!npc.visible)continue;const gap=Math.hypot(npc.position.x-px,npc.position.z-pz),ahead=(npc.position.x-px)*dx+(npc.position.z-pz)*dz;if(gap<3.8&&ahead>0){stop=true;break;}}
     if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}
-    if(d.transit&&d.transitStopCooldown<=0&&transportStops.length){const nearby=transportStops.find(st=>Math.hypot(st.x-px,st.z-pz)<9.5&&st.name!==d.lastTransitStop);if(nearby){d.transitDwell=2.8;d.transitStopCooldown=18;d.lastTransitStop=nearby.name;d.speedFactor=0;handleTransitStop(v,nearby);updateTrafficVehiclePose(v);return;}}
+    if(d.transit&&d.transitStopCooldown<=0&&transportStops.length){const nearby=transportStops.find(st=>Math.hypot(st.x-px,st.z-pz)<9.5&&st.id!==d.lastTransitStop);if(nearby){d.transitDwell=2.8;d.transitStopCooldown=18;d.lastTransitStop=nearby.id||('stop-'+Math.round(nearby.x*10)+'-'+Math.round(nearby.z*10));d.speedFactor=0;handleTransitStop(v,nearby);updateTrafficVehiclePose(v);return;}}
     d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
   while(remaining>0&&guard++<12){
