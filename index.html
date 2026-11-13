@@ -2749,7 +2749,8 @@ function loadLifeProgress(){
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
-    if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);\n    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
+    if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
+    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
@@ -3003,7 +3004,9 @@ function openPhoneApp(app){
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
-  if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}\n  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}\n  if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
+  if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
+  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
+  if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
