@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2748,6 +2748,7 @@ function loadLifeProgress(){
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
+    if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
 function saveLifeProgress(show=true){
@@ -2755,7 +2756,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2923,6 +2924,30 @@ const ABJ_JOBS=[
   {name:'Agent d’accueil',sector:'Bureau',salary:1500,start:8,end:17},
   {name:'Employé de maquis',sector:'Restauration',salary:1300,start:10,end:23}
 ];
+function renderBankApp(){
+  const content=document.getElementById('phoneAppContent');if(!content)return;
+  const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
+    const positive=t.type==='credit';
+    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:9px 4px;border-bottom:1px solid #ffffff20"><div><b>'+escapeHTML(t.label)+'</b><div style="font-size:10px;color:#b9cad6">'+escapeHTML(t.date||'Transaction récente')+'</div></div><b style="white-space:nowrap;color:'+(positive?'#8ce0a4':'#ffb0a0')+'">'+(positive?'+':'−')+Math.abs(t.amount).toLocaleString('fr-FR')+' F</b></div>';
+  }).join('');
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏦 Banque ABJ · Wave</h3><div style="padding:14px;border-radius:13px;background:linear-gradient(120deg,#087b83,#174b70);margin:10px 0"><small>PORTEFEUILLE SIMULÉ</small><div style="font-size:25px;font-weight:800;margin:5px 0">'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</div><small>Argent disponible dans ta partie</small></div><p style="font-size:11px;color:#c6d8e5">Environnement fictif : aucun compte bancaire réel et aucun transfert d’argent réel.</p><h4>Envoyer de l’argent</h4><label style="display:block;font-size:12px">Destinataire<input id="bankRecipient" maxlength="32" placeholder="Nom du contact" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><label style="display:block;font-size:12px">Montant (FCFA)<input id="bankAmount" type="number" min="1" max="10000000" step="1" placeholder="Ex. 2500" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><button id="bankSend">Confirmer le transfert</button><p id="bankStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p><h4>Historique récent</h4><div>'+(rows||'<p style="font-size:12px;color:#c6d8e5">Aucune transaction pour le moment.</p>')+'</div>';
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+  document.getElementById('bankSend').onclick=()=>{
+    const recipient=document.getElementById('bankRecipient').value.trim();
+    const amount=Number(document.getElementById('bankAmount').value);
+    const status=document.getElementById('bankStatus');
+    if(recipient.length<2){status.textContent='Indique un nom de destinataire valide.';return;}
+    if(!Number.isSafeInteger(amount)||amount<=0){status.textContent='Saisis un montant entier supérieur à zéro.';return;}
+    if(amount>lifeState.money){status.textContent='Solde insuffisant pour ce transfert.';return;}
+    lifeState.money-=amount;
+    lifeState.bankTransactions=lifeState.bankTransactions||[];
+    lifeState.bankTransactions.push({type:'debit',label:'Transfert à '+recipient,amount,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});
+    lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);
+    saveLifeProgress(false);
+    renderBankApp();
+    const next=document.getElementById('bankStatus');if(next)next.textContent='Transfert simulé effectué. Nouveau solde : '+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA.';
+  };
+}
 function renderEmploymentApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const current=ABJ_JOBS.find(j=>j.name===lifeState.job);
@@ -2946,11 +2971,12 @@ function openPhoneApp(app){
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
+  if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Les habitants que tu rencontres seront ajoutés ici.',
     messages:'Aucun nouveau message pour le moment.',
-    banque:'Solde disponible : '+Math.floor(lifeState.money)+' FCFA.',
+    banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
     transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
