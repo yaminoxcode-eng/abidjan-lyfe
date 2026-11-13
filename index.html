@@ -178,7 +178,7 @@
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
-    <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
+    <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button><button class="phoneApp" data-app="logement"><span>🏠</span>Logement</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button><button class="phoneApp" data-app="sante"><span>🏥</span>Santé</button><button class="phoneApp" data-app="etudes"><span>🎓</span>Études</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
     <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
@@ -297,7 +297,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, housing:{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2749,6 +2749,7 @@ function loadLifeProgress(){
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
+    if(saved.housing&&typeof saved.housing==='object')lifeState.housing={ownedDoorId:typeof saved.housing.ownedDoorId==='string'?saved.housing.ownedDoorId:null,lease:saved.housing.lease&&typeof saved.housing.lease.doorId==='string'?{doorId:saved.housing.lease.doorId,rent:Math.max(0,Math.min(50000,Number(saved.housing.lease.rent)||0)),startedDay:Math.max(1,Math.floor(Number(saved.housing.lease.startedDay)||1))}:null,arrears:Math.max(0,Math.min(10000000,Number(saved.housing.arrears)||0)),gameDay:Math.max(1,Math.floor(Number(saved.housing.gameDay)||1)),lastBilledDay:Math.max(1,Math.floor(Number(saved.housing.lastBilledDay)||1))};
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
     if(saved.education&&typeof saved.education==='object')lifeState.education={courseId:typeof saved.education.courseId==='string'?saved.education.courseId:null,remaining:Math.max(0,Math.min(600,Number(saved.education.remaining)||0)),certificates:Array.isArray(saved.education.certificates)?saved.education.certificates.filter(x=>typeof x==='string').slice(0,30):[]};
@@ -2765,7 +2766,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,health:lifeState.health,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,education:lifeState.education,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,housing:lifeState.housing,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2789,7 +2790,7 @@ function updateLifeSimulation(delta){
   lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
   if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
   lifeState.minute+=delta*5.2;
-  while(lifeState.minute>=60){lifeState.minute-=60;lifeState.hour=(lifeState.hour+1)%24;}
+  while(lifeState.minute>=60){lifeState.minute-=60;const previousHour=lifeState.hour;lifeState.hour=(lifeState.hour+1)%24;if(previousHour===23){lifeState.housing=lifeState.housing||{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1};lifeState.housing.gameDay=(lifeState.housing.gameDay||1)+1;processHousingBilling();}}
   const pct=(v)=>Math.round(Math.max(0,Math.min(100,v)))+'%';
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.style.width=pct(v);};
   set('hungerFill',lifeState.hunger);set('energyFill',lifeState.energy);set('socialFill',lifeState.social);
@@ -3215,6 +3216,63 @@ function renderGoogleApp(){
  field.addEventListener('input',draw);draw();field.focus();
 }
 
+
+function getHousingDoor(doorId){return doors.find(d=>d&&d.id===doorId&&String(d.id).startsWith('home'))||null;}
+function getHousingCandidates(){
+ return doors.filter(d=>d&&d.home&&String(d.id).startsWith('home')&&interiors[d.id]).map(d=>{
+  const it=interiors[d.id],area=(it.roomW||16)*(it.roomD||16),rent=Math.max(900,Math.round((650+area*2.1)/100)*100),utilities=Math.max(500,Math.round((350+area*.8)/100)*100),price=Math.round((320000+area*13500)/5000)*5000;
+  return {door:d,area,rent,utilities,price,distance:player&&!currentInterior?Math.round(Math.hypot(player.position.x-d.x,player.position.z-d.z)):null};
+ }).sort((a,b)=>(a.distance??999999)-(b.distance??999999));
+}
+function housingLedger(type,label,amount){
+ lifeState.bankTransactions=lifeState.bankTransactions||[];
+ lifeState.bankTransactions.push({type,label,amount,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});
+ lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);
+}
+function processHousingBilling(){
+ const h=lifeState.housing;if(!h)return;
+ const occupied=h.lease?getHousingDoor(h.lease.doorId):h.ownedDoorId?getHousingDoor(h.ownedDoorId):null;
+ if(!occupied||h.gameDay-(h.lastBilledDay||h.gameDay)<7)return;
+ const candidate=getHousingCandidates().find(x=>x.door.id===occupied.id);
+ const utilities=candidate?candidate.utilities:900;
+ const rent=h.lease?Math.max(0,h.lease.rent):0;
+ const total=rent+utilities;
+ h.lastBilledDay=h.gameDay;
+ if(lifeState.money>=total){
+  lifeState.money-=total;housingLedger('debit',h.lease?'Loyer + factures du logement':'Factures du logement',total);
+  showMessage('🏠 Charges réglées : '+total.toLocaleString('fr-FR')+' FCFA.');
+ }else{
+  h.arrears=(h.arrears||0)+total;
+  showMessage('⚠️ Charges impayées : '+total.toLocaleString('fr-FR')+' FCFA ajoutés à tes impayés.');
+ }
+ saveLifeProgress(false);
+}
+function renderHousingApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const h=lifeState.housing||(lifeState.housing={ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1});
+ const owned=h.ownedDoorId?getHousingDoor(h.ownedDoorId):null,lease=h.lease?getHousingDoor(h.lease.doorId):null;
+ const current=owned||lease;
+ const candidates=getHousingCandidates();
+ const status=current?'<div style="padding:12px;border-radius:12px;background:#ffffff12;margin:10px 0"><b>'+(owned?'🏡 Propriétaire':'🔑 Locataire')+' · '+escapeHTML(current.buildingName||'Logement à Abidjan')+'</b><p style="font-size:11px;margin:6px 0">Adresse de jeu : '+(current.id)+' · Journée '+h.gameDay+'</p>'+(lease?'<p>Loyer hebdomadaire : '+leaseRent().toLocaleString('fr-FR')+' FCFA</p>':'<p>Tu possèdes ce logement. Seules les factures restent à payer.</p>')+'<p>Impayés : <b style="color:'+(h.arrears?'#ffb0a0':'#8ce0a4')+'">'+Math.floor(h.arrears||0).toLocaleString('fr-FR')+' FCFA</b></p><button id="housingPay" '+(!(h.arrears>0)||lifeState.money<h.arrears?'disabled':'')+'>Régler les impayés</button>'+(lease?'<button id="housingEndLease">Résilier le bail</button>':'')+(owned?'<button id="housingSell">Revendre (70 %)</button>':'')+'</div>':'<p style="padding:10px;background:#ffffff12;border-radius:10px">Tu n’as pas encore de logement à ton nom. Tu peux louer un logement ou économiser pour en acheter un.</p>');
+ const list=candidates.slice(0,10).map(x=>'<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><b>🏠 '+escapeHTML(x.door.buildingName||'Maison à Abidjan')+'</b><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+(x.distance===null?'Distance inconnue':x.distance.toLocaleString('fr-FR')+' m')+' · '+Math.round(x.area)+' m² environ</div><div style="font-size:12px;margin:5px 0">Loyer : <b>'+x.rent.toLocaleString('fr-FR')+' F / semaine</b> · Dépôt : '+(x.rent*2).toLocaleString('fr-FR')+' F</div><div style="font-size:12px;margin:5px 0">Achat : <b>'+x.price.toLocaleString('fr-FR')+' FCFA</b></div><button data-housing-rent="'+escapeHTML(x.door.id)+'" '+(current?'disabled':'')+'>Louer</button><button data-housing-buy="'+escapeHTML(x.door.id)+'" '+(current?'disabled':'')+'>Acheter</button></article>').join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏠 Logement ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b> · Journée '+h.gameDay+'</p><p style="font-size:11px;color:#c6d8e5">Les logements sont reliés aux portes résidentielles du monde. Le loyer et les factures sont simulés et enregistrés dans ta banque.</p>'+status+'<h4>Logements disponibles</h4>'+list+'<p id="housingStatus" style="font-size:12px;color:#ffe0a0;min-height:20px"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-housing-rent]').forEach(btn=>btn.onclick=()=>{
+  const x=candidates.find(v=>v.door.id===btn.dataset.housingRent);if(!x)return;
+  const deposit=x.rent*2;if(lifeState.money<deposit){document.getElementById('housingStatus').textContent='Solde insuffisant : il faut '+deposit.toLocaleString('fr-FR')+' FCFA pour le dépôt de garantie.';return;}
+  lifeState.money-=deposit;h.lease={doorId:x.door.id,rent:x.rent,startedDay:h.gameDay};h.ownedDoorId=null;h.lastBilledDay=h.gameDay;housingLedger('debit','Dépôt de garantie · '+(x.door.buildingName||'Logement'),deposit);saveLifeProgress(false);renderHousingApp();showMessage('🔑 Bail signé. Ton logement est enregistré.');
+ });
+ content.querySelectorAll('[data-housing-buy]').forEach(btn=>btn.onclick=()=>{
+  const x=candidates.find(v=>v.door.id===btn.dataset.housingBuy);if(!x)return;
+  if(lifeState.money<x.price){document.getElementById('housingStatus').textContent='Solde insuffisant : achat nécessaire de '+x.price.toLocaleString('fr-FR')+' FCFA.';return;}
+  lifeState.money-=x.price;h.ownedDoorId=x.door.id;h.lease=null;h.arrears=0;h.lastBilledDay=h.gameDay;housingLedger('debit','Achat · '+(x.door.buildingName||'Logement'),x.price);saveLifeProgress(false);renderHousingApp();showMessage('🏡 Félicitations ! Tu es propriétaire de ce logement.');
+ });
+ const pay=document.getElementById('housingPay');if(pay)pay.onclick=()=>{const due=Math.floor(h.arrears||0);if(due<=0||lifeState.money<due)return;lifeState.money-=due;h.arrears=0;housingLedger('debit','Règlement des charges en retard',due);saveLifeProgress(false);renderHousingApp();showMessage('✅ Tes impayés sont réglés.');};
+ const end=document.getElementById('housingEndLease');if(end)end.onclick=()=>{if(!confirm('Résilier ton bail ? Le dépôt de garantie n’est pas remboursé dans cette version.'))return;h.lease=null;h.arrears=0;saveLifeProgress(false);renderHousingApp();showMessage('Bail résilié.');};
+ const sell=document.getElementById('housingSell');if(sell)sell.onclick=()=>{const x=candidates.find(v=>v.door.id===h.ownedDoorId);if(!x)return;const refund=Math.round(x.price*.7);lifeState.money+=refund;h.ownedDoorId=null;housingLedger('credit','Revente du logement',refund);saveLifeProgress(false);renderHousingApp();showMessage('Logement revendu : '+refund.toLocaleString('fr-FR')+' FCFA récupérés.');};
+}
+function leaseRent(){return lifeState.housing&&lifeState.housing.lease?lifeState.housing.lease.rent:0;}
+
 function renderBankApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
@@ -3267,6 +3325,7 @@ function openPhoneApp(app){
   if(app==='etudes'){apps.style.display='none';content.style.display='block';renderEducationApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
+  if(app==='logement'){apps.style.display='none';content.style.display='block';renderHousingApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
   if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
