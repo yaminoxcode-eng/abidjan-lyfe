@@ -177,7 +177,7 @@
     <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
-    <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button>
+    <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2751,6 +2751,7 @@ function loadLifeProgress(){
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
     if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
+    if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
@@ -2759,7 +2760,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,creator:lifeState.creator,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2955,6 +2956,14 @@ function renderShopApp(){
  document.getElementById('openInventory').onclick=()=>renderInventoryApp();
  content.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.buy);if(!it)return;const status=document.getElementById('shopStatus');if(lifeState.money<it.price){status.textContent='Solde insuffisant pour cet achat.';return;}lifeState.money-=it.price;lifeState.inventory=lifeState.inventory||{};lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'debit',label:'Achat : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderShopApp();const msg=document.getElementById('shopStatus');if(msg)msg.textContent=it.name+' ajouté à ton sac.';});
 }
+function renderCreatorApp(platform){
+ const content=document.getElementById('phoneAppContent');if(!content)return;lifeState.creator=lifeState.creator||{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1};const c=lifeState.creator;const yt=platform==='youtube';const title=yt?'YouTube ABJ':'TikTok ABJ';const followers=yt?c.youtubeFollowers:c.tiktokFollowers;const posts=c.posts.filter(p=>p.platform===platform);const gallery=(()=>{try{return JSON.parse(localStorage.getItem('abj-game-gallery-v1')||'[]')}catch(e){return[]}})();
+ const postCards=posts.slice().reverse().map(p=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff25;border-radius:10px"><b>'+escapeHTML(p.caption)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(p.kind)+' · '+p.views.toLocaleString('fr-FR')+' vues · '+escapeHTML(p.date)+'</div></div>').join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>'+(yt?'▶️ ':'🎵 ')+title+'</h3>'+(c.certified?'<p>Compte créateur : <b>'+escapeHTML(c.displayName)+'</b></p><p>Abonnés : <b>'+followers.toLocaleString('fr-FR')+'</b> · Publications : '+posts.length+'</p><p style="font-size:11px;color:#c6d8e5">Les vues et revenus sont simulés dans le jeu. Les photos publiées doivent déjà être présentes dans ta galerie.</p><h4>Publier depuis la galerie</h4><select id="creatorMedia" style="width:100%;padding:9px;border-radius:8px">'+(gallery.length?gallery.map((g,i)=>'<option value="'+i+'">'+escapeHTML(g.name||('Photo '+(i+1)))+'</option>').join(''):'<option value="">Aucun média dans la galerie</option>')+'</select><input id="creatorCaption" maxlength="100" placeholder="Légende de ta publication" style="width:100%;padding:9px;margin:7px 0"><button id="creatorPublish" '+(gallery.length?'':'disabled')+'>Publier</button><h4>Mes publications</h4>'+(postCards||'<p>Aucune publication pour le moment.</p>'):'<p>Crée ton compte de créateur pour publier tes photos du jeu et développer ton audience.</p><label>Nom de compte</label><input id="creatorName" maxlength="32" placeholder="Ton pseudo dans Abidjan Life" style="width:100%;padding:9px;margin:7px 0"><label style="display:block;margin:8px 0"><input id="creatorConsent" type="checkbox"> Je confirme que ce compte est mon identité de créateur dans le jeu.</label><button id="creatorCertify">Créer et certifier mon compte</button>');
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ const cert=document.getElementById('creatorCertify');if(cert)cert.onclick=()=>{const name=document.getElementById('creatorName').value.trim();if(name.length<3||!document.getElementById('creatorConsent').checked){showMessage('Saisis un pseudo (3 caractères minimum) et confirme la création.');return;}c.certified=true;c.displayName=name;saveLifeProgress(false);renderCreatorApp(platform);};
+ const publish=document.getElementById('creatorPublish');if(publish)publish.onclick=()=>{const idx=Number(document.getElementById('creatorMedia').value),media=gallery[idx],caption=document.getElementById('creatorCaption').value.trim();if(!media||!caption){showMessage('Choisis une photo et écris une légende.');return;}const day=Math.floor((c.posts.length+1));const views=yt?80+Math.floor(Math.random()*420):100+Math.floor(Math.random()*900);c.posts.push({platform,caption,kind:'Photo',views,date:String(lifeState.hour).padStart(2,'0')+'h'+String(Math.floor(lifeState.minute)).padStart(2,'0'),mediaName:String(media.name||'Photo').slice(0,80)});if(yt)c.youtubeFollowers+=Math.max(1,Math.floor(views/45));else c.tiktokFollowers+=Math.max(1,Math.floor(views/80));saveLifeProgress(false);renderCreatorApp(platform);showMessage('Publication en ligne ! +'+views+' vues simulées.');};
+}
 function renderBankApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
@@ -3007,6 +3016,7 @@ function openPhoneApp(app){
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
   if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
+  if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
