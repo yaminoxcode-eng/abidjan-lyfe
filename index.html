@@ -318,6 +318,7 @@ const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 // INIT
 // ============================================================
 function openCharacterCreator(){
+  loadLifeProgress();
   const saved=lifeState.playerProfile||{},overlay=document.getElementById('creatorOverlay');
   const set=(id,value)=>{const el=document.getElementById(id);if(el&&value!==undefined)el.value=String(value);};
   set('creatorName',saved.name||'Mon personnage');set('creatorGender',saved.gender||'homme');set('creatorSkin','0x'+Number(saved.skin||0x7a4a24).toString(16));set('creatorHair','0x'+Number(saved.hair||0x17120f).toString(16));set('creatorShirt','0x'+Number(saved.shirt||0xe74c3c).toString(16));set('creatorPants','0x'+Number(saved.pants||0x2c3e50).toString(16));
