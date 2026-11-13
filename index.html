@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2744,9 +2744,10 @@ function loadLifeProgress(){
   try{
     const raw=localStorage.getItem(LIFE_SAVE_KEY); if(!raw)return;
     const saved=JSON.parse(raw);
-    ['hunger','energy','social','money','hour','minute'].forEach(k=>{
+    ['hunger','energy','social','money','hour','minute','workXP'].forEach(k=>{
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
     });
+    if(typeof saved.job==='string')lifeState.job=saved.job;
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
 function saveLifeProgress(show=true){
@@ -2754,6 +2755,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
+      job:lifeState.job,workXP:lifeState.workXP,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2915,6 +2917,27 @@ function renderTransportApp(){
   document.getElementById('transportRefresh').onclick=renderTransportApp;
   document.getElementById('transportMap').onclick=()=>{closePhone();openBigMap();};
 }
+const ABJ_JOBS=[
+  {name:'Vendeur / vendeuse',sector:'Commerce',salary:1200,start:8,end:18},
+  {name:'Livreur à moto',sector:'Livraison',salary:1800,start:7,end:20},
+  {name:'Agent d’accueil',sector:'Bureau',salary:1500,start:8,end:17},
+  {name:'Employé de maquis',sector:'Restauration',salary:1300,start:10,end:23}
+];
+function renderEmploymentApp(){
+  const content=document.getElementById('phoneAppContent');if(!content)return;
+  const current=ABJ_JOBS.find(j=>j.name===lifeState.job);
+  const cards=ABJ_JOBS.map(j=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(j.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(j.sector)+' · '+j.start+'h–'+j.end+'h</div><div style="color:#ffe0a0;margin:5px 0">'+j.salary.toLocaleString('fr-FR')+' FCFA par service</div><button data-job="'+escapeHTML(j.name)+'">Choisir ce métier</button></div>').join('');
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>💼 Emploi et recrutement</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><p>Métier actuel : <b>'+escapeHTML(lifeState.job)+'</b> · Services terminés : '+lifeState.workXP+'</p>'+(current?'<p>Horaires : '+current.start+'h–'+current.end+'h · Salaire : '+current.salary.toLocaleString('fr-FR')+' FCFA par service</p><button id="workShift">Effectuer un service</button>':'<p>Choisis un métier pour commencer à travailler.</p>')+'<h4>Offres disponibles</h4>'+cards+'<p id="jobStatus" style="font-size:12px;color:#ffe0a0"></p>';
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+  content.querySelectorAll('[data-job]').forEach(btn=>btn.onclick=()=>{lifeState.job=btn.dataset.job;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Candidature acceptée : tu travailles maintenant comme '+lifeState.job+'.';});
+  const work=document.getElementById('workShift');if(work)work.onclick=()=>{
+    const job=ABJ_JOBS.find(j=>j.name===lifeState.job);if(!job)return;
+    if(lifeState.hour<job.start||lifeState.hour>=job.end){document.getElementById('jobStatus').textContent='Service indisponible à cette heure. Reviens entre '+job.start+'h et '+job.end+'h.';return;}
+    if(lifeState.jobCooldown>0){document.getElementById('jobStatus').textContent='Tu dois te reposer avant le prochain service.';return;}
+    if(lifeState.energy<20){document.getElementById('jobStatus').textContent='Ton énergie est trop basse. Repose-toi avant de travailler.';return;}
+    lifeState.money+=job.salary;lifeState.energy=Math.max(0,lifeState.energy-18);lifeState.hunger=Math.max(0,lifeState.hunger-8);lifeState.workXP++;lifeState.jobCooldown=60;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Service terminé : +'+job.salary.toLocaleString('fr-FR')+' FCFA. Repos nécessaire avant le prochain service.';
+  };
+}
 function openPhoneApp(app){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
   if(!apps||!content)return;
@@ -2922,13 +2945,14 @@ function openPhoneApp(app){
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
+  if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Les habitants que tu rencontres seront ajoutés ici.',
     messages:'Aucun nouveau message pour le moment.',
     banque:'Solde disponible : '+Math.floor(lifeState.money)+' FCFA.',
     transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
-    travail:'Trouve un lieu de travail dans la ville pour gagner de l’argent.',
+    travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Les commerces visitables et leurs articles apparaîtront ici.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
     parametres:'Abidjan Life · Téléphone du joueur · Version de simulation.', gallery:'Tes photos prises dans Abidjan Life.'
