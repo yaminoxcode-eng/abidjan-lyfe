@@ -1316,6 +1316,18 @@ function trafficSignalShouldStop(px,pz,dx,dz){
   }
   return false;
 }
+function trafficJunctionOccupied(v,px,pz){
+  for(const light of trafficLights){
+    if(light.intersectionX===undefined||light.intersectionZ===undefined||!light.axis)continue;
+    const cx=light.intersectionX,cz=light.intersectionZ;
+    if(Math.hypot(cx-px,cz-pz)>17)continue;
+    for(const other of vehicles){
+      if(other===v||other.userData.wreck||!other.visible)continue;
+      if(Math.hypot(other.position.x-cx,other.position.z-cz)<7.2&&Math.hypot(other.position.x-px,other.position.z-pz)>3.2)return true;
+    }
+  }
+  return false;
+}
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
   if(d.transit){d.transitStopCooldown=Math.max(0,(d.transitStopCooldown||0)-delta);if((d.transitDwell||0)>0){d.transitDwell=Math.max(0,d.transitDwell-delta);updateTrafficVehiclePose(v);return;}}
@@ -1323,7 +1335,7 @@ function advanceTrafficVehicle(v,delta){
   if(segNow){
     const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1;
     const t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t,ux=dx/len,uz=dz/len;
-    let stop=trafficSignalShouldStop(px,pz,dx,dz);
+    let stop=trafficSignalShouldStop(px,pz,dx,dz)||trafficJunctionOccupied(v,px,pz);
     if(!stop)for(const other of vehicles){
       if(other===v||other.userData.wreck||!other.visible)continue;
       const rx=other.position.x-px,rz=other.position.z-pz,ahead=rx*ux+rz*uz,lateral=Math.abs(rx*uz-rz*ux);
