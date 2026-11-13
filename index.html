@@ -3038,7 +3038,7 @@ function renderEmploymentApp(){
     if(lifeState.hour<job.start||lifeState.hour>=job.end){document.getElementById('jobStatus').textContent='Service indisponible à cette heure. Reviens entre '+job.start+'h et '+job.end+'h.';return;}
     if(lifeState.jobCooldown>0){document.getElementById('jobStatus').textContent='Tu dois te reposer avant le prochain service.';return;}
     if(lifeState.energy<20){document.getElementById('jobStatus').textContent='Ton énergie est trop basse. Repose-toi avant de travailler.';return;}
-    lifeState.money+=job.salary;lifeState.energy=Math.max(0,lifeState.energy-18);lifeState.hunger=Math.max(0,lifeState.hunger-8);lifeState.workXP++;lifeState.jobCooldown=60;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Service terminé : +'+job.salary.toLocaleString('fr-FR')+' FCFA. Repos nécessaire avant le prochain service.';
+    lifeState.money+=job.salary;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'credit',label:'Salaire : '+job.name,amount:job.salary,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);lifeState.energy=Math.max(0,lifeState.energy-18);lifeState.hunger=Math.max(0,lifeState.hunger-8);lifeState.workXP++;lifeState.jobCooldown=60;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Service terminé : +'+job.salary.toLocaleString('fr-FR')+' FCFA. Repos nécessaire avant le prochain service.';
   };
 }
 function openPhoneApp(app){
