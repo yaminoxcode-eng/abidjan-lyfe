@@ -142,7 +142,7 @@
   #phoneAppContent{display:none}#phoneAppContent button{border:1px solid #f4d28b;background:#243e52;color:white;border-radius:9px;padding:9px 12px;margin:5px 3px}
   @media(max-width:760px){#phone{right:10px;bottom:10px;width:290px;height:490px}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
-</style>
+  #creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}\n</style>
 </head>
 <body>
 
@@ -159,7 +159,21 @@
   </div>
 </div>
 
-<div id="lifeHud" aria-label="Besoins du personnage">
+<div id="creatorOverlay" role="dialog" aria-modal="true" aria-labelledby="creatorTitle">
+  <div id="creatorCard">
+    <div class="creatorHead"><div><small>ABIDJAN LIFE · IDENTITÉ</small><h2 id="creatorTitle">Créer ton personnage</h2><p>Personnalise ton avatar avant d'entrer dans Abidjan.</p></div><div id="creatorPreview">🧍🏾‍♂️</div></div>
+    <div class="creatorGrid">
+      <label>Nom du personnage<input id="creatorName" maxlength="24" value="Mon personnage" autocomplete="off"></label>
+      <label>Apparence<select id="creatorGender"><option value="homme">Homme</option><option value="femme">Femme</option></select></label>
+      <label>Teint<select id="creatorSkin"><option value="0x7a4a24">Brun</option><option value="0x5a3018">Brun foncé</option><option value="0xa0663a">Marron clair</option><option value="0x8d5524">Caramel</option><option value="0xc58b5b">Clair</option></select></label>
+      <label>Cheveux<select id="creatorHair"><option value="0x17120f">Noir</option><option value="0x3b2418">Brun</option><option value="0x6d4c35">Châtain</option><option value="0x222b36">Bleu nuit</option></select></label>
+      <label>Haut<select id="creatorShirt"><option value="0xe74c3c">Rouge</option><option value="0x2878b8">Bleu</option><option value="0x2e9b62">Vert</option><option value="0xe0b43c">Jaune</option><option value="0xe8e8e8">Blanc</option><option value="0x49356f">Violet</option></select></label>
+      <label>Pantalon<select id="creatorPants"><option value="0x2c3e50">Bleu marine</option><option value="0x171717">Noir</option><option value="0x6a4932">Marron</option><option value="0x9b9b9b">Gris</option><option value="0x315c43">Vert</option></select></label>
+    </div>
+    <div class="creatorActions"><button id="creatorCancel">Retour</button><button id="creatorStart">Entrer dans Abidjan</button></div>
+    <p class="creatorNote">Tu pourras retrouver et modifier ton apparence dans une prochaine mise à jour.</p>
+  </div>
+</div>\n<div id="lifeHud" aria-label="Besoins du personnage">
   <span id="lifeMood">🙂</span>
   <div class="lifeNeed"><label>Faim</label><div class="lifeTrack"><div id="hungerFill" class="lifeFill"></div></div></div>
   <div class="lifeNeed"><label>Énergie</label><div class="lifeTrack"><div id="energyFill" class="lifeFill"></div></div></div>
@@ -174,7 +188,7 @@
 <div id="phone" aria-label="Téléphone du personnage">
   <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
   <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
-    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button>
+    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button><button class="phoneApp" data-app="cheats"><span>⌨️</span>Codes créateur</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
@@ -297,24 +311,37 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, housing:{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, housing:{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1}, cheats:{money:false,hunger:false,energy:false}, playerProfile:{name:'Mon personnage',gender:'homme',skin:0x7a4a24,hair:0x17120f,shirt:0xe74c3c,pants:0x2c3e50}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
 // INIT
 // ============================================================
-document.getElementById('startBtn').addEventListener('click', function() {
-  document.getElementById('startScreen').style.display = 'none';
-  document.getElementById('mapStatus').textContent = 'Téléchargement des routes et bâtiments…';
-  gameStarted = true;
-  try { init(); animate(); }
-  catch (err) {
-    const box = document.getElementById('errorBox');
-    box.style.display = 'block';
-    box.textContent = 'ERREUR INIT: ' + err.message;
-    console.error(err);
-  }
-});
+function openCharacterCreator(){
+  const saved=lifeState.playerProfile||{},overlay=document.getElementById('creatorOverlay');
+  const set=(id,value)=>{const el=document.getElementById(id);if(el&&value!==undefined)el.value=String(value);};
+  set('creatorName',saved.name||'Mon personnage');set('creatorGender',saved.gender||'homme');set('creatorSkin','0x'+Number(saved.skin||0x7a4a24).toString(16));set('creatorHair','0x'+Number(saved.hair||0x17120f).toString(16));set('creatorShirt','0x'+Number(saved.shirt||0xe74c3c).toString(16));set('creatorPants','0x'+Number(saved.pants||0x2c3e50).toString(16));
+  overlay.classList.add('open');updateCreatorPreview();
+}
+function updateCreatorPreview(){
+  const gender=document.getElementById('creatorGender').value,preview=document.getElementById('creatorPreview');
+  preview.textContent=gender==='femme'?'🧍🏾‍♀️':'🧍🏾‍♂️';
+  preview.style.filter='drop-shadow(0 3px 3px #0008)';
+}
+function launchGameFromCreator(){
+  const value=id=>document.getElementById(id).value;
+  lifeState.playerProfile={name:value('creatorName').trim().slice(0,24)||'Mon personnage',gender:value('creatorGender'),skin:parseInt(value('creatorSkin')),hair:parseInt(value('creatorHair')),shirt:parseInt(value('creatorShirt')),pants:parseInt(value('creatorPants'))};
+  document.getElementById('creatorOverlay').classList.remove('open');
+  document.getElementById('startScreen').style.display='none';
+  document.getElementById('mapStatus').textContent='Téléchargement des routes et bâtiments…';
+  gameStarted=true;
+  try{init();animate();saveLifeProgress(false);}
+  catch(err){const box=document.getElementById('errorBox');box.style.display='block';box.textContent='ERREUR INIT: '+err.message;console.error(err);}
+}
+document.getElementById('startBtn').addEventListener('click',openCharacterCreator);
+document.getElementById('creatorStart').addEventListener('click',launchGameFromCreator);
+document.getElementById('creatorCancel').addEventListener('click',()=>document.getElementById('creatorOverlay').classList.remove('open'));
+['creatorGender','creatorSkin','creatorHair','creatorShirt','creatorPants'].forEach(id=>document.getElementById(id).addEventListener('change',updateCreatorPreview));
 
 function init() {
   scene = new THREE.Scene();
@@ -1086,7 +1113,7 @@ function buildOSMBuildings(ways,nodes) {
     const mesh=new THREE.Mesh(merged,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
     // Recalcule les limites après projection sur le relief pour éviter un culling prématuré.
     merged.computeBoundingSphere();
-    mesh.frustumCulled=true; mesh.castShadow=false; mesh.receiveShadow=false; scene.add(mesh);
+    mesh.frustumCulled=false; mesh.castShadow=false; mesh.receiveShadow=false; mesh.visible=true; scene.add(mesh);
   }
   if(facadePositions.length){
     const facade=new THREE.BufferGeometry();
@@ -1094,7 +1121,7 @@ function buildOSMBuildings(ways,nodes) {
     facade.setAttribute('color',new THREE.Float32BufferAttribute(facadeColors,3));
     facade.setIndex(facadeIndices);facade.computeVertexNormals();facade.computeBoundingSphere();
     const facadeMesh=new THREE.Mesh(facade,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
-    facadeMesh.frustumCulled=true;facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;scene.add(facadeMesh);
+    facadeMesh.frustumCulled=false;facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;facadeMesh.visible=true;scene.add(facadeMesh);
   }
   console.info('Bâtiments OSM regroupés :',count);
 }
@@ -2353,9 +2380,9 @@ function createCharacter(opts) {
   const skin = opts.skin || skinTones[Math.floor(Math.random() * skinTones.length)];
   const shirt = opts.shirt || 0xff6b6b;
   const pants = opts.pants || 0x2c3e50;
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.32, 0.72, 10), new THREE.MeshLambertMaterial({ color: shirt }));
+  const female=opts.gender==='femme';\n  const torso = new THREE.Mesh(new THREE.CylinderGeometry(female?0.25:0.27, female?0.29:0.32, 0.72, 10), new THREE.MeshLambertMaterial({ color: shirt }));
   torso.position.y = 1.35; torso.castShadow = true; g.add(torso);
-  const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.32, 10), new THREE.MeshLambertMaterial({ color: pants }));
+  const hips = new THREE.Mesh(new THREE.CylinderGeometry(female?0.31:0.28, female?0.31:0.28, 0.32, 10), new THREE.MeshLambertMaterial({ color: pants }));
   hips.position.y = 0.9; hips.castShadow = true; g.add(hips);
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.18, 8), new THREE.MeshLambertMaterial({ color: skin }));
   neck.position.y = 1.8; g.add(neck);
@@ -2363,7 +2390,7 @@ function createCharacter(opts) {
   headGroup.position.y = 2.08;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), new THREE.MeshLambertMaterial({ color: skin }));
   head.scale.set(1, 1.08, 0.95); head.castShadow = true; headGroup.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(opts.gender==='femme'?0.285:0.27, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: opts.hair||0x111111 }));
   hair.position.y = 0.05; headGroup.add(hair);
   g.add(headGroup);
   function makeArm(side) {
@@ -2391,7 +2418,7 @@ function createCharacter(opts) {
 }
 
 function createPlayer() {
-  player = createCharacter({ shirt: 0xe74c3c, pants: 0x2c3e50, skin: 0x7a4a24 });
+  const profile=lifeState.playerProfile||{};\n  player = createCharacter({ shirt: profile.shirt||0xe74c3c, pants: profile.pants||0x2c3e50, skin: profile.skin||0x7a4a24, hair:profile.hair||0x17120f, gender:profile.gender||'homme' });\n  player.userData.displayName=profile.name||'Mon personnage';
   player.position.set(-420, 0.02, -390);
   player.rotation.y = 0;
   movementState.onGround = true;
@@ -2791,14 +2818,14 @@ function loadLifeProgress(){
     if(saved.homeDecor&&typeof saved.homeDecor==='object'&&!Array.isArray(saved.homeDecor)){lifeState.homeDecor={};for(const [key,list] of Object.entries(saved.homeDecor)){if(typeof key==='string'&&Array.isArray(list))lifeState.homeDecor[key]=list.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.x)&&Number.isFinite(x.z)&&Number.isInteger(x.floor)).slice(0,40);}}
     if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
     if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
-    if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
+    if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);\n    if(saved.cheats&&typeof saved.cheats==='object')lifeState.cheats={money:!!saved.cheats.money,hunger:!!saved.cheats.hunger,energy:!!saved.cheats.energy};\n    if(saved.playerProfile&&typeof saved.playerProfile==='object')lifeState.playerProfile={name:String(saved.playerProfile.name||'Mon personnage').slice(0,24),gender:saved.playerProfile.gender==='femme'?'femme':'homme',skin:Number(saved.playerProfile.skin)||0x7a4a24,hair:Number(saved.playerProfile.hair)||0x17120f,shirt:Number(saved.playerProfile.shirt)||0xe74c3c,pants:Number(saved.playerProfile.pants)||0x2c3e50};
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
 function saveLifeProgress(show=true){
   try{
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,health:lifeState.health,
-      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,education:lifeState.education,
+      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,education:lifeState.education,cheats:lifeState.cheats,playerProfile:lifeState.playerProfile,
       job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,housing:lifeState.housing,
       savedAt:new Date().toISOString()
     }));
@@ -2822,7 +2849,7 @@ function updateLifeSimulation(delta){
   if(lifeState.hunger<5&&lifeState.energy<8)lifeState.health=Math.max(0,lifeState.health-delta*.025);
   lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
   if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
-  lifeState.minute+=delta*5.2;
+  if(lifeState.cheats&&lifeState.cheats.money)lifeState.money=100000000;\n  if(lifeState.cheats&&lifeState.cheats.hunger)lifeState.hunger=100;\n  if(lifeState.cheats&&lifeState.cheats.energy)lifeState.energy=100;\n  lifeState.minute+=delta*5.2;
   while(lifeState.minute>=60){lifeState.minute-=60;const previousHour=lifeState.hour;lifeState.hour=(lifeState.hour+1)%24;if(previousHour===23){lifeState.housing=lifeState.housing||{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1};lifeState.housing.gameDay=(lifeState.housing.gameDay||1)+1;processHousingBilling();}}
   const pct=(v)=>Math.round(Math.max(0,Math.min(100,v)))+'%';
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.style.width=pct(v);};
@@ -3354,10 +3381,20 @@ function renderEmploymentApp(){
     lifeState.money+=job.salary;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'credit',label:'Salaire : '+job.name,amount:job.salary,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);lifeState.energy=Math.max(0,lifeState.energy-18);lifeState.hunger=Math.max(0,lifeState.hunger-8);lifeState.workXP++;lifeState.jobCooldown=60;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Service terminé : +'+job.salary.toLocaleString('fr-FR')+' FCFA. Repos nécessaire avant le prochain service.';
   };
 }
+function renderCheatApp(){
+  const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');apps.style.display='none';content.style.display='block';
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>⌨️ Console du créateur</h3><p style="font-size:11px;color:#c6d8e5">Entre un code secret puis valide avec #. Ces codes sont réservés au créateur du jeu.</p><div style="padding:12px;border-radius:12px;background:#071522;border:1px solid #e6c77b66;margin:10px 0"><label for="cheatInput" style="font-size:11px;color:#f3d38f">CODE DE TRICHE</label><input id="cheatInput" inputmode="text" autocomplete="off" maxlength="8" placeholder="#______#" style="box-sizing:border-box;width:100%;margin-top:7px;padding:13px;background:#102b3d;color:#fff;border:1px solid #ffffff40;border-radius:8px;text-align:center;font-size:21px;letter-spacing:3px"><div id="cheatStatus" aria-live="polite" style="min-height:34px;padding-top:8px;font-size:12px;color:#ffe0a0">Saisis ton code secret.</div></div><div id="cheatPad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">'+['1','2','3','4','5','6','7','8','9','⌫','0','#'].map(k=>'<button type="button" data-key="'+k+'" style="padding:13px 5px;font-size:18px">'+k+'</button>').join('')+'</div><button id="cheatSubmit" style="width:100%;margin-top:9px;background:#c49a45;color:#17232c;font-weight:800">Activer le code</button><div id="cheatStates" style="font-size:11px;color:#d9e8ef;margin-top:10px"></div>';
+  const input=document.getElementById('cheatInput'),status=document.getElementById('cheatStatus');
+  const state=()=>{const c=lifeState.cheats||{};document.getElementById('cheatStates').innerHTML='Argent illimité : '+(c.money?'✓ ACTIF':'inactif')+'<br>Faim illimitée : '+(c.hunger?'✓ ACTIF':'inactif')+'<br>Énergie illimitée : '+(c.energy?'✓ ACTIF':'inactif');};state();
+  const submit=()=>{const codes={'#102030#':'money','#100101#':'hunger','#001002#':'energy'},kind=codes[input.value.trim()];if(!kind){status.textContent='Code incorrect. Vérifie les chiffres et les #.';status.style.color='#ff9a8c';return;}lifeState.cheats=lifeState.cheats||{money:false,hunger:false,energy:false};lifeState.cheats[kind]=true;if(kind==='money')lifeState.money=100000000;if(kind==='hunger')lifeState.hunger=100;if(kind==='energy')lifeState.energy=100;saveLifeProgress(false);status.textContent=({money:'✓ Argent illimité activé !',hunger:'✓ Faim illimitée activée !',energy:'✓ Énergie illimitée activée !'})[kind];status.style.color='#8ef0ad';input.value='';state();};
+  document.getElementById('cheatPad').addEventListener('click',e=>{const b=e.target.closest('button[data-key]');if(!b)return;const k=b.dataset.key;if(k==='⌫')input.value=input.value.slice(0,-1);else if(input.value.length<8)input.value+=k;input.focus();});
+  document.getElementById('cheatSubmit').onclick=submit;input.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';apps.style.display='grid';};
+}
 function openPhoneApp(app){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');
   if(!apps||!content)return;
-  if(app==='localisation'){closePhone();openBigMap();return;}
+  if(app==='localisation'){closePhone();openBigMap();return;}\n  if(app==='cheats'){renderCheatApp();return;}
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
@@ -3376,7 +3413,7 @@ function openPhoneApp(app){
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',sante:'Santé ABJ',etudes:'Études ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={cheats:'Codes créateur',contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',sante:'Santé ABJ',etudes:'Études ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
