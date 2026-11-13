@@ -179,7 +179,7 @@
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
-    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button>
+    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button><button class="phoneApp" data-app="sante"><span>🏥</span>Santé</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
     <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
@@ -297,7 +297,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -967,7 +967,7 @@ function buildOSMNodePlaces(elements,nodes){
     const p=nodes.get(el.id),t=el.tags||{};
     const isStop=t.highway==='bus_stop'||t.public_transport==='platform'||t.public_transport==='stop_position'||t.amenity==='bus_station'||t.amenity==='ferry_terminal'||t.public_transport==='station';
     const isEducation=['school','university','college','kindergarten'].includes(t.amenity)||['school','university','college'].includes(t.building);
-    const type=t.shop?'commerce':t.amenity==='university'||t.amenity==='college'||t.building==='university'?'universite':isEducation?'ecole':t.amenity==='hospital'||t.amenity==='clinic'?'sante':t.amenity==='place_of_worship'?'culte':isStop?'transport':t.tourism?'tourisme':'service';
+    const type=t.shop?'commerce':t.amenity==='university'||t.amenity==='college'||t.building==='university'?'universite':isEducation?'ecole':t.amenity==='hospital'||t.amenity==='clinic'||t.amenity==='pharmacy'?'sante':t.amenity==='place_of_worship'?'culte':isStop?'transport':t.tourism?'tourisme':'service';
     const name=t.name||t['name:fr']||t.shop||t.amenity||t.office||t.tourism||(isStop?'Arrêt de transport': 'Lieu de quartier');
     const key=Math.round(p.x/8)+':'+Math.round(p.z/8);
     if(isStop){
@@ -2745,7 +2745,7 @@ function loadLifeProgress(){
   try{
     const raw=localStorage.getItem(LIFE_SAVE_KEY); if(!raw)return;
     const saved=JSON.parse(raw);
-    ['hunger','energy','social','money','hour','minute','workXP'].forEach(k=>{
+    ['hunger','energy','social','health','money','hour','minute','workXP'].forEach(k=>{
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
@@ -2762,7 +2762,7 @@ function loadLifeProgress(){
 function saveLifeProgress(show=true){
   try{
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
-      hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
+      hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,health:lifeState.health,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,
       job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,
       savedAt:new Date().toISOString()
@@ -2783,6 +2783,7 @@ function updateLifeSimulation(delta){
     lifeState.energy=Math.max(0,lifeState.energy-delta*(keys['shift']? .19:.105)*decay);
   }
   if(lifeState.hunger<15)lifeState.energy=Math.max(0,lifeState.energy-delta*.32);
+  if(lifeState.hunger<5&&lifeState.energy<8)lifeState.health=Math.max(0,lifeState.health-delta*.025);
   lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
   if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
   lifeState.minute+=delta*5.2;
@@ -3001,6 +3002,23 @@ const ABJ_ADMIN_SERVICES=[
  {id:'residence',name:'Attestation de résidence',price:1500,description:'Justificatif administratif de domicile.',requires:['cni']},
  {id:'permit',name:'Permis de conduire',price:15000,description:'Autorisation de conduire dans la simulation.',requires:['cni']}
 ];
+
+function renderHealthApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const pos=currentInterior&&lastExteriorPosition?lastExteriorPosition:(player?player.position:{x:0,z:0});
+ const clinics=poi.filter(p=>p.type==='sante').map(p=>({...p,distance:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.distance-b.distance).slice(0,10);
+ const options=clinics.map((c,i)=>'<option value="'+i+'">'+escapeHTML(c.nom)+' · '+Math.round(c.distance)+' m</option>').join('');
+ const nearby=clinics.filter(c=>c.distance<=280);
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏥 Santé ABJ</h3><div style="padding:12px;border-radius:10px;background:#ffffff12"><b>Santé : '+Math.round(lifeState.health)+'/100</b><div style="height:9px;background:#263b46;border-radius:8px;margin-top:7px;overflow:hidden"><div style="height:100%;width:'+Math.max(0,Math.min(100,lifeState.health))+'%;background:'+(lifeState.health<35?'#e36b62':'#69c78a')+'"></div></div></div><p style="font-size:11px;color:#c6d8e5">Les centres sont issus des lieux de santé cartographiés dans la ville. Les soins et tarifs sont simulés dans le jeu.</p><h4>Centres de santé les plus proches</h4>'+(clinics.length?'<select id="healthClinic" style="width:100%;padding:9px;background:#183447;color:white;border-radius:8px">'+options+'</select>':'<p>Aucun centre de santé chargé dans la carte.</p>')+'<p id="healthDistance" style="font-size:12px;color:#c6d8e5">'+(clinics.length?Math.round(clinics[0].distance)+' m de ta position':'')+'</p><button id="healthCare" '+(!nearby.length?'disabled':'')+'>Consulter sur place · 2 500 FCFA</button><button id="healthTaxi" '+(!clinics.length?'disabled':'')+'>Commander un Yango vers ce centre</button><p id="healthStatus" style="font-size:12px;color:#ffe0a0"></p><p>Tu peux aussi acheter un médicament courant dans la Boutique et le prendre depuis ton sac.</p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ const select=document.getElementById('healthClinic'),care=document.getElementById('healthCare'),taxi=document.getElementById('healthTaxi'),distance=document.getElementById('healthDistance');
+ const chosen=()=>clinics[Number(select&&select.value)||0];
+ const refresh=()=>{const c=chosen();if(!c)return;distance.textContent=Math.round(c.distance)+' m de ta position';care.disabled=c.distance>280||lifeState.money<2500;care.textContent=c.distance>280?'Tu dois te rendre au centre':'Consulter sur place · 2 500 FCFA';};
+ if(select){select.onchange=refresh;refresh();}
+ if(care)care.onclick=()=>{const c=chosen();if(!c||c.distance>280||lifeState.money<2500)return;lifeState.money-=2500;lifeState.health=Math.min(100,lifeState.health+55);const stamp=String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0');lifeState.bankTransactions.push({type:'debit',label:'Consultation : '+c.nom,amount:2500,date:stamp});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderHealthApp();const st=document.getElementById('healthStatus');if(st)st.textContent='Consultation terminée. Ta santé a été restaurée.';};
+ if(taxi)taxi.onclick=()=>{const c=chosen();if(!c)return;openPhoneApp('yango');const y=document.getElementById('yangoDestination');if(y){const match=Array.from(y.options).find(o=>o.textContent.startsWith(c.nom));if(match){y.value=match.value;y.dispatchEvent(new Event('change'));}}};
+}
+
 function renderMairieApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
  const docs=lifeState.documents||{};
@@ -3026,7 +3044,8 @@ const ABJ_SHOP_ITEMS=[
  {id:'banane',name:'Bananes',category:'Alimentation',price:250,description:'Un petit repas riche en énergie.',hunger:20,energy:3},
  {id:'atti-eke',name:'Garba à emporter',category:'Repas',price:1000,description:'Un repas complet qui restaure bien la faim.',hunger:55,energy:8},
  {id:'jus',name:'Jus local',category:'Boisson',price:400,description:'Une boisson fraîche.',energy:14,social:2},
- {id:'savon',name:'Savon',category:'Hygiène',price:500,description:'Un produit utile pour la toilette.',hygiene:1}
+ {id:'savon',name:'Savon',category:'Hygiène',price:500,description:'Un produit utile pour la toilette.',hygiene:1},
+ {id:'medicament',name:'Médicament courant',category:'Pharmacie',price:900,description:'Un traitement de base pour récupérer un peu de santé.',health:25}
 ];
 function renderInventoryApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
@@ -3035,7 +3054,7 @@ function renderInventoryApp(){
  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🎒 Mon sac</h3>'+(rows||'<p>Ton inventaire est vide. Visite la boutique pour acheter des articles.</p>');
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
  content.querySelectorAll('[data-jumia-view]').forEach(btn=>btn.onclick=()=>renderJumiaApp());
- content.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.use);if(!it||!lifeState.inventory[it.id])return;if(it.hunger)lifeState.hunger=Math.min(100,lifeState.hunger+it.hunger);if(it.energy)lifeState.energy=Math.min(100,lifeState.energy+it.energy);if(it.social)lifeState.social=Math.min(100,lifeState.social+it.social);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];saveLifeProgress(false);renderInventoryApp();});
+ content.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.use);if(!it||!lifeState.inventory[it.id])return;if(it.hunger)lifeState.hunger=Math.min(100,lifeState.hunger+it.hunger);if(it.energy)lifeState.energy=Math.min(100,lifeState.energy+it.energy);if(it.social)lifeState.social=Math.min(100,lifeState.social+it.social);if(it.health)lifeState.health=Math.min(100,lifeState.health+it.health);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];saveLifeProgress(false);renderInventoryApp();});
 }
 
 const ABJ_JUMIA_ITEMS=[
@@ -3221,6 +3240,7 @@ function openPhoneApp(app){
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
   if(app==='yango'){apps.style.display='none';content.style.display='block';renderYangoApp();return;}
   if(app==='mairie'){apps.style.display='none';content.style.display='block';renderMairieApp();return;}
+  if(app==='sante'){apps.style.display='none';content.style.display='block';renderHealthApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
@@ -3231,12 +3251,12 @@ function openPhoneApp(app){
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',sante:'Santé ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
-    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',mairie:'Demande et conserve tes documents administratifs dans ta partie.',
+    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',mairie:'Demande et conserve tes documents administratifs dans ta partie.',sante:'Consulte les centres de santé et soigne ton personnage.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Achète des produits et retrouve-les dans ton sac.',jumia:'Achète des meubles et installe-les dans ton logement.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
