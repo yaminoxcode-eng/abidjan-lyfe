@@ -234,7 +234,7 @@ function createAbidjanTerrain(){
   grass.anisotropy=Math.min(8,renderer&&renderer.capabilities?renderer.capabilities.getMaxAnisotropy():4);
   const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:grass,color:0xffffff}));mesh.receiveShadow=true;scene.add(mesh);return mesh;
 }
-let osmRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulationCreated = false;
+let osmRoadSegments = [], trafficRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulationCreated = false;
 const OBSTACLE_CELL = 96;
 const obstacleGrid = new Map();
 let jumpQueued = false;
@@ -853,6 +853,7 @@ function getNearbyPedestrianNodes(x,z,radius){
   return out;
 }
 function buildOSMRoads(ways, nodes) {
+  trafficRoadSegments.length=0;
   const roadWidths={motorway:15,motorway_link:9,trunk:13,trunk_link:8,primary:11,primary_link:7,secondary:8,secondary_link:6,tertiary:6.5,tertiary_link:5,residential:5.2,unclassified:4.5,service:3.2,living_street:5,track:3.2,busway:7};
   const pedestrianOnly=new Set(['footway','path','pedestrian','steps','cycleway']);
   const ignored=new Set(['construction','proposed','raceway']);
@@ -867,6 +868,11 @@ function buildOSMRoads(ways, nodes) {
   ways.forEach(w=>{
     const tag=w.tags.highway;if(ignored.has(tag))return;
     const raw=w.nodes.map(id=>nodes.get(id)).filter(Boolean);if(raw.length<2)return;
+    // Le graphe de navigation conserve chaque nœud OSM original : la simplification
+    // graphique ci-dessous peut supprimer un carrefour situé au milieu d'une voie.
+    if(!pedestrianOnly.has(tag)&&!ignored.has(tag))for(let j=1;j<raw.length;j++){
+      const a=raw[j-1],b=raw[j];if(Math.hypot(b.x-a.x,b.z-a.z)>.35)trafficRoadSegments.push({a,b,width:roadWidths[tag]||4,type:tag,name:w.tags.name||''});
+    }
     if(pedestrianOnly.has(tag)){
       let last=null;
       for(const p of raw){if(!last||Math.hypot(p.x-last.x,p.z-last.z)>=18){pedestrianNodes.push(p);last=p;}}
@@ -1194,9 +1200,10 @@ function makeStreetLabel(x,z,label){const c=document.createElement('canvas');c.w
 function trafficNodeKey(p){return Math.round(p.x*2)/2+':'+Math.round(p.z*2)/2;}
 function buildTrafficGraph(){
   trafficGraph=new Map();
-  osmRoadSegments.forEach(seg=>{
-    if(!['motorway','trunk','primary','secondary','tertiary','residential','living_street','service'].includes(seg.type))return;
-    if(Math.hypot(seg.b.x-seg.a.x,seg.b.z-seg.a.z)<8)return;
+  const source=trafficRoadSegments.length?trafficRoadSegments:osmRoadSegments;
+  source.forEach(seg=>{
+    if(!['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','residential','unclassified','living_street','service','busway'].includes(seg.type))return;
+    if(Math.hypot(seg.b.x-seg.a.x,seg.b.z-seg.a.z)<.35)return;
     const ka=trafficNodeKey(seg.a),kb=trafficNodeKey(seg.b);
     if(!trafficGraph.has(ka))trafficGraph.set(ka,[]);if(!trafficGraph.has(kb))trafficGraph.set(kb,[]);
     trafficGraph.get(ka).push({seg,forward:true});trafficGraph.get(kb).push({seg,forward:false});
@@ -2921,10 +2928,13 @@ function closePhone(){
 }
 function escapeHTML(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 
-function nearestTrafficNode(x,z){
+function nearestTrafficNode(x,z,maxDistance=650){
  let best=null,dist=Infinity;
- for(const key of trafficGraph.keys()){const [nx,nz]=key.split(':').map(Number),d=Math.hypot(nx-x,nz-z);if(d<dist){dist=d;best=key;}}
- return best&&dist<1500?best:null;
+ for(const key of trafficGraph.keys()){
+  const [nx,nz]=key.split(':').map(Number),d=Math.hypot(nx-x,nz-z);
+  if(d<dist){dist=d;best=key;}
+ }
+ return best&&dist<=maxDistance?best:null;
 }
 function buildYangoRoadPath(sx,sz,tx,tz){
  if(!trafficGraph||trafficGraph.size<2)return null;
@@ -2932,7 +2942,7 @@ function buildYangoRoadPath(sx,sz,tx,tz){
  const parse=k=>{const [x,z]=k.split(':').map(Number);return {x,z};};
  const g=new Map([[start,0]]),prev=new Map(),open=[{key:start,f:Math.hypot(parse(start).x-parse(goal).x,parse(start).z-parse(goal).z)}],closed=new Set();
  let found=false,steps=0;
- while(open.length&&steps++<5000){
+ while(open.length&&steps++<30000){
   open.sort((a,b)=>a.f-b.f);const cur=open.shift();if(closed.has(cur.key))continue;
   if(cur.key===goal){found=true;break;}closed.add(cur.key);
   const base=g.get(cur.key),p=parse(cur.key);
