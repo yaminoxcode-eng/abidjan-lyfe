@@ -1241,6 +1241,11 @@ function updateTrafficVehiclePose(v){
   const x=seg.a.x+dx*t,z=seg.a.z+dz*t,rx=dz/len,rz=-dx/len;
   v.position.set(x+rx*d.laneOffset,terrainHeight(x,z)+.03,z+rz*d.laneOffset);v.rotation.y=Math.atan2(dx,dz);
 }
+function handleTransitStop(v,stop){
+  const d=v.userData;if(!d.transit)return;d.passengers=d.passengers||[];
+  for(let i=d.passengers.length-1;i>=0;i--){const rider=d.passengers[i];rider.rideStops=(rider.rideStops||0)+1;if(rider.rideStops>=1&&Math.random()<.42){rider.npc.visible=true;rider.npc.position.set(stop.x+((Math.random()-.5)*5),terrainHeight(stop.x,stop.z)+.03,stop.z+((Math.random()-.5)*5));rider.npc.userData.transitRider=false;rider.npc.userData.transitTargetStop=null;rider.npc.userData.pauseTimer=2;d.passengers.splice(i,1);}}
+  for(const npc of npcs){if(d.passengers.length>=5)break;const n=npc.userData;if(!npc.visible||n.dead||!n.transitWaiting||!n.transitTargetStop)continue;if(Math.hypot(npc.position.x-stop.x,npc.position.z-stop.z)<14){npc.visible=false;n.transitWaiting=false;n.transitRider=true;n.transitTargetStop=null;n.pauseTimer=0;d.passengers.push({npc,rideStops:0});}}
+}
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
   if(d.transit){d.transitStopCooldown=Math.max(0,(d.transitStopCooldown||0)-delta);if((d.transitDwell||0)>0){d.transitDwell=Math.max(0,d.transitDwell-delta);updateTrafficVehiclePose(v);return;}}
@@ -1249,7 +1254,7 @@ function advanceTrafficVehicle(v,delta){
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
     if(!stop)for(const npc of npcs){if(npc.userData.dead||!npc.visible)continue;const gap=Math.hypot(npc.position.x-px,npc.position.z-pz),ahead=(npc.position.x-px)*dx+(npc.position.z-pz)*dz;if(gap<3.8&&ahead>0){stop=true;break;}}
     if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}
-    if(d.transit&&d.transitStopCooldown<=0&&transportStops.length){const nearby=transportStops.find(st=>Math.hypot(st.x-px,st.z-pz)<9.5&&st.name!==d.lastTransitStop);if(nearby){d.transitDwell=2.8;d.transitStopCooldown=18;d.lastTransitStop=nearby.name;d.speedFactor=0;updateTrafficVehiclePose(v);return;}}
+    if(d.transit&&d.transitStopCooldown<=0&&transportStops.length){const nearby=transportStops.find(st=>Math.hypot(st.x-px,st.z-pz)<9.5&&st.name!==d.lastTransitStop);if(nearby){d.transitDwell=2.8;d.transitStopCooldown=18;d.lastTransitStop=nearby.name;d.speedFactor=0;handleTransitStop(v,nearby);updateTrafficVehiclePose(v);return;}}
     d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
   while(remaining>0&&guard++<12){
@@ -2693,13 +2698,14 @@ function updateNPCs(delta) {
       d.changeTimer=5+Math.random()*12;
       if(Math.random()<.24){d.pauseTimer=2+Math.random()*5;animateCharacter(npc,delta,false);return;}
       let target=null;
-      if(osmLoaded&&pedestrianNodes.length){const nearby=getNearbyPedestrianNodes(npc.position.x,npc.position.z,140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
+      if(transportStops.length&&Math.random()<.18&&!d.transitRider){const stop=transportStops[Math.floor(Math.random()*transportStops.length)];if(Math.hypot(stop.x-npc.position.x,stop.z-npc.position.z)<260){d.transitTargetStop=stop;d.transitWaiting=false;target=stop;}}
+      if(!target&&osmLoaded&&pedestrianNodes.length){const nearby=getNearbyPedestrianNodes(npc.position.x,npc.position.z,140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
       else target={x:npc.position.x+(Math.random()-.5)*100,z:npc.position.z+(Math.random()-.5)*100};
       d.targetX=target.x;d.targetZ=target.z;
     }
     if(d.targetX===undefined){d.targetX=npc.position.x+(Math.random()-.5)*25;d.targetZ=npc.position.z+(Math.random()-.5)*25;}
     const dx=d.targetX-npc.position.x,dz=d.targetZ-npc.position.z,dist=Math.hypot(dx,dz);
-    if(dist<2){d.pauseTimer=1+Math.random()*3;d.targetX=undefined;return;}
+    if(dist<2){if(d.transitTargetStop&&Math.hypot(d.transitTargetStop.x-npc.position.x,d.transitTargetStop.z-npc.position.z)<5){d.transitWaiting=true;d.pauseTimer=999;d.targetX=undefined;animateCharacter(npc,delta,false);return;}d.pauseTimer=1+Math.random()*3;d.targetX=undefined;return;}
     const step=Math.min(dist,d.speed*delta),nx=dx/dist,nz=dz/dist;
     const next=npc.position.clone();next.x+=nx*step;next.z+=nz*step;resolveCollisions(next,.34);
     npc.position.x=next.x;npc.position.z=next.z;npc.position.y=terrainHeight(next.x,next.z)+0.02;npc.rotation.y=Math.atan2(nx,nz);animateCharacter(npc,delta,true);
