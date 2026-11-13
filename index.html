@@ -1055,7 +1055,9 @@ function buildOSMBuildings(ways,nodes) {
     merged.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
     merged.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
     merged.setIndex(indices); merged.computeBoundingSphere();
-    const mesh=new THREE.Mesh(merged,new THREE.MeshLambertMaterial({vertexColors:true}));
+    const mesh=new THREE.Mesh(merged,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
+    // Recalcule les limites après projection sur le relief pour éviter un culling prématuré.
+    merged.computeBoundingSphere();
     mesh.frustumCulled=true; mesh.castShadow=false; mesh.receiveShadow=false; scene.add(mesh);
   }
   if(facadePositions.length){
@@ -1064,7 +1066,7 @@ function buildOSMBuildings(ways,nodes) {
     facade.setAttribute('color',new THREE.Float32BufferAttribute(facadeColors,3));
     facade.setIndex(facadeIndices);facade.computeVertexNormals();facade.computeBoundingSphere();
     const facadeMesh=new THREE.Mesh(facade,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
-    facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;scene.add(facadeMesh);
+    facadeMesh.frustumCulled=true;facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;scene.add(facadeMesh);
   }
   console.info('Bâtiments OSM regroupés :',count);
 }
@@ -2641,7 +2643,7 @@ function updatePlayer(delta) {
     return;
   }
 
-  const q = {nom: 'Abidjan', tag: 'Côte d’Ivoire'};
+  const q = getQuartierAt(player.position.x, player.position.z);
   if (q.nom !== currentQuartier) {
     currentQuartier = q.nom;
     const el = document.getElementById('quartier');
@@ -2957,7 +2959,7 @@ function animate() {
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
     districtCheckTimer+=delta;if(districtCheckTimer>.45){districtCheckTimer=0;updateDistrictHUD();}
     const phoneClock=document.getElementById('phoneClock');if(phoneClock)phoneClock.textContent=String(lifeState.hour).padStart(2,'0')+':'+String(lifeState.minute).padStart(2,'0');
-    if(mapOpen && leafletMap && player){const g=worldToGeo(player.position.x,player.position.z),hx=Math.sin(player.rotation.y)*18,hz=Math.cos(player.rotation.y)*18,head=worldToGeo(player.position.x+hx,player.position.z+hz);leafletPlayerMarker.setLatLng([g.lat,g.lon]);if(leafletHeadingLine)leafletHeadingLine.setLatLng([[g.lat,g.lon],[head.lat,head.lon]]);if(mapFollowPlayer)leafletMap.panTo([g.lat,g.lon],{animate:false});}
+    if(mapOpen && leafletMap && player){const g=worldToGeo(player.position.x,player.position.z),hx=Math.sin(player.rotation.y)*18,hz=Math.cos(player.rotation.y)*18,head=worldToGeo(player.position.x+hx,player.position.z+hz);leafletPlayerMarker.setLatLng([g.lat,g.lon]);if(leafletHeadingLine)leafletHeadingLine.setLatLngs([[g.lat,g.lon],[head.lat,head.lon]]);if(mapFollowPlayer)leafletMap.panTo([g.lat,g.lon],{animate:false});}
     renderer.render(scene, camera);
   } catch (err) {
     console.error(err);
