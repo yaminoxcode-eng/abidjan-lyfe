@@ -191,7 +191,7 @@
 <div id="phone" aria-label="Téléphone du personnage">
   <div id="phoneTop"><span>📱 ABJ CONNECT</span><span id="phoneClock">08:00</span><button id="phoneClose" aria-label="Fermer">×</button></div>
   <div id="phoneScreen"><h3>Mes applications</h3><div id="phoneApps">
-    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button><button class="phoneApp" data-app="cheats"><span>⌨️</span>Codes créateur</button>
+    <button class="phoneApp" data-app="localisation"><span>🗺️</span>Plans</button><button class="phoneApp" data-app="cheats"><span>⌨️</span>Codes créateur</button><button class="phoneApp" data-app="jeux"><span>🎮</span>Jeux</button>
     <button class="phoneApp" data-app="camera"><span>📷</span>Caméra</button><button class="phoneApp" data-app="gallery"><span>🖼️</span>Galerie</button>
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
@@ -3439,6 +3439,26 @@ function renderEmploymentApp(){
     lifeState.money+=job.salary;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'credit',label:'Salaire : '+job.name,amount:job.salary,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);lifeState.energy=Math.max(0,lifeState.energy-18);lifeState.hunger=Math.max(0,lifeState.hunger-8);lifeState.workXP++;lifeState.jobCooldown=60;saveLifeProgress(false);renderEmploymentApp();document.getElementById('jobStatus').textContent='Service terminé : +'+job.salary.toLocaleString('fr-FR')+' FCFA. Repos nécessaire avant le prochain service.';
   };
 }
+
+function renderPhoneGamesApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const games=[{name:'Course de gbaka',emoji:'🚐',desc:'Petit défi de réflexes dans les rues d’Abidjan.',status:'Bientôt disponible'},{name:'Awalé',emoji:'🟤',desc:'Jeu de plateau traditionnel.',status:'Bientôt disponible'},{name:'Penalty',emoji:'⚽',desc:'Mini séance de tirs au but.',status:'Bientôt disponible'},{name:'Puzzle Abidjan',emoji:'🧩',desc:'Reconstitue des lieux de la ville.',status:'Bientôt disponible'}];
+ let index=0;
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🎮 Mini-jeux</h3><p style="font-size:12px;color:#c6d8e5">Une petite collection de jeux à installer dans ton téléphone. Fais glisser ou utilise les flèches pour parcourir le catalogue.</p><div id="gameShelf" style="overflow:hidden;border-radius:15px;background:#ffffff10;padding:16px;text-align:center;touch-action:pan-y"><div id="gameEmoji" style="font-size:58px">🚐</div><b id="gameName"></b><p id="gameDesc" style="font-size:12px;min-height:34px"></p><small id="gameStatus" style="color:#ffe0a0"></small></div><div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0"><button id="gamePrev">◀</button><span id="gameCount" style="font-size:11px"></span><button id="gameNext">▶</button></div><button id="gameInstall" style="width:100%">Ajouter à mon téléphone</button><div id="gameInstallStatus" style="font-size:11px;color:#9ee6b4;margin-top:8px"></div>';
+ const draw=()=>{const g=games[index];document.getElementById('gameEmoji').textContent=g.emoji;document.getElementById('gameName').textContent=g.name;document.getElementById('gameDesc').textContent=g.desc;document.getElementById('gameStatus').textContent=g.status;document.getElementById('gameCount').textContent=(index+1)+' / '+games.length;document.getElementById('gameInstallStatus').textContent='';};
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ document.getElementById('gamePrev').onclick=()=>{index=(index+games.length-1)%games.length;draw();};document.getElementById('gameNext').onclick=()=>{index=(index+1)%games.length;draw();};
+ document.getElementById('gameInstall').onclick=()=>{document.getElementById('gameInstallStatus').textContent='Ajouté à ta bibliothèque (aperçu). Le mini-jeu sera activé dans une prochaine mise à jour.';};
+ let touchX=0;const shelf=document.getElementById('gameShelf');shelf.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;},{passive:true});shelf.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-touchX;if(Math.abs(dx)>35){index=(index+(dx<0?1:games.length-1))%games.length;draw();}},{passive:true});draw();
+}
+function renderAccountSettingsApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>⚙️ Réglages du compte</h3><div style="padding:12px;background:#ffffff12;border-radius:12px"><div style="font-size:11px;color:#b9d6e7">Compte connecté</div><b>'+escapeHTML(activeGameAccount||'Aucun compte')+'</b><p style="font-size:11px;color:#c6d8e5">La sauvegarde est associée à ce numéro sur cet appareil.</p></div><button id="accountSignOut">Se déconnecter</button><button id="accountDelete" style="background:#843d3d">Supprimer le compte et toutes les sauvegardes</button><p id="accountSettingStatus" style="font-size:11px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ document.getElementById('accountSignOut').onclick=()=>{closePhone();activeGameAccount=null;openAccountGate();};
+ document.getElementById('accountDelete').onclick=()=>{const status=document.getElementById('accountSettingStatus');if(!activeGameAccount){status.textContent='Aucun compte actif.';return;}if(!confirm('Supprimer ce compte et toutes ses sauvegardes locales ? Cette action est irréversible.'))return;const accounts=readGameAccounts();delete accounts[activeGameAccount];localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));localStorage.removeItem(LIFE_SAVE_KEY);localStorage.removeItem('abj-life-gallery-v1');activeGameAccount=null;closePhone();gameStarted=false;worldReady=false;document.getElementById('creatorOverlay').classList.remove('open');document.getElementById('startScreen').style.display='flex';status.textContent='Compte supprimé.';showMessage('Compte et sauvegardes supprimés.');};
+}
+
 function renderCheatApp(){
   const apps=document.getElementById('phoneApps'),content=document.getElementById('phoneAppContent');apps.style.display='none';content.style.display='block';
   content.innerHTML='<button id="phoneBack">← Applications</button><h3>⌨️ Console du créateur</h3><p style="font-size:11px;color:#c6d8e5">Entre un code secret puis valide avec #. Ces codes sont réservés au créateur du jeu.</p><div style="padding:12px;border-radius:12px;background:#071522;border:1px solid #e6c77b66;margin:10px 0"><label for="cheatInput" style="font-size:11px;color:#f3d38f">CODE DE TRICHE</label><input id="cheatInput" inputmode="text" autocomplete="off" maxlength="8" placeholder="#______#" style="box-sizing:border-box;width:100%;margin-top:7px;padding:13px;background:#102b3d;color:#fff;border:1px solid #ffffff40;border-radius:8px;text-align:center;font-size:21px;letter-spacing:3px"><div id="cheatStatus" aria-live="polite" style="min-height:34px;padding-top:8px;font-size:12px;color:#ffe0a0">Saisis ton code secret.</div></div><div id="cheatPad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">'+['1','2','3','4','5','6','7','8','9','⌫','0','#'].map(k=>'<button type="button" data-key="'+k+'" style="padding:13px 5px;font-size:18px">'+k+'</button>').join('')+'</div><button id="cheatSubmit" style="width:100%;margin-top:9px;background:#c49a45;color:#17232c;font-weight:800">Activer le code</button><div id="cheatStates" style="font-size:11px;color:#d9e8ef;margin-top:10px"></div>';
@@ -3454,6 +3474,8 @@ function openPhoneApp(app){
   if(!apps||!content)return;
   if(app==='localisation'){closePhone();openBigMap();return;}
   if(app==='cheats'){renderCheatApp();return;}
+  if(app==='jeux'){renderPhoneGamesApp();return;}
+  if(app==='parametres'){renderAccountSettingsApp();return;}
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
