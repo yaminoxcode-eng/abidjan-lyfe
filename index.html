@@ -2994,7 +2994,7 @@ function getDistrictNames(){
   if(!player)return {quartier:'Abidjan',commune:'Abidjan'};
   const x=player.position.x,z=player.position.z,c=getCommuneZoneAt(x,z),q=getQuartierAt(x,z);
   if(c){
-    const ix=Math.abs(Math.floor((x/173+z/137)*7))%c.quarters.length;
+    const nx=Math.max(0,Math.min(.999,(x-c.x1)/Math.max(1,c.x2-c.x1))),nz=Math.max(0,Math.min(.999,(z-c.z1)/Math.max(1,c.z2-c.z1)));const ix=Math.min(c.quarters.length-1,Math.floor((nx*.62+nz*.38)*c.quarters.length));
     return {quartier:c.quarters[ix],commune:c.name,zone:q.nom};
   }
   return {quartier:q.nom+' Centre',commune:q.nom,zone:q.nom};
@@ -3111,12 +3111,16 @@ function updateYangoCamera(delta){
  camera.position.lerp(desired,1-Math.pow(.001,delta));camera.lookAt(target.x,target.y+1.0,target.z);
 }
 
+function orderTransitStops(stops,start){
+ const remaining=stops.slice(),ordered=[];let current=start||remaining.shift();if(!current)return ordered;if(remaining.includes(current))remaining.splice(remaining.indexOf(current),1);ordered.push(current);
+ while(remaining.length&&ordered.length<24){let best=0,dist=Infinity;for(let i=0;i<remaining.length;i++){const d=Math.hypot(remaining[i].x-current.x,remaining[i].z-current.z);if(d<dist){dist=d;best=i;}}current=remaining.splice(best,1)[0];ordered.push(current);}return ordered;
+}
 function renderTransportApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const px=player?player.position.x:0,pz=player?player.position.z:0;
   const near=transportStops.slice().sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,12);
   const rows=near.length?near.map(st=>'<div style="padding:9px;margin:7px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(st.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(st.mode)+' · '+escapeHTML(st.commune)+'</div><div style="font-size:11px;color:#ffe0a0">'+(Math.round(Math.hypot(st.x-px,st.z-pz)))+' m de ta position</div></div>').join(''):'<p>Aucun arrêt OSM disponible dans les données chargées.</p>';
-  const lineStops=[...transportStops].sort((a,b)=>a.x-b.x||a.z-b.z);const lineCards=[{name:'Ligne S1 — SOTRA (simulation)',mode:'Bus',stops:lineStops.filter((_,i)=>i%3===0).slice(0,8)},{name:'Ligne G1 — Gbaka (simulation)',mode:'Gbaka',stops:lineStops.filter((_,i)=>i%3===1).slice(0,8)},{name:'Ligne G2 — Gbaka (simulation)',mode:'Gbaka',stops:lineStops.filter((_,i)=>i%3===2).slice(0,8)}];
+  const lineStops=orderTransitStops(transportStops.slice().sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,45));const lineCards=[{name:'Ligne S1 — Bus (simulation)',mode:'Bus',stops:orderTransitStops(lineStops.filter((_,i)=>i%3===0))},{name:'Ligne G1 — Gbaka (simulation)',mode:'Gbaka',stops:orderTransitStops(lineStops.filter((_,i)=>i%3===1))},{name:'Ligne G2 — Gbaka (simulation)',mode:'Gbaka',stops:orderTransitStops(lineStops.filter((_,i)=>i%3===2))}].map(line=>({...line,stops:line.stops.slice(0,8)}));
   const lines=lineCards.map(line=>'<div style="padding:9px;margin:7px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(line.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+line.mode+' · '+line.stops.length+' arrêts cartographiés</div><div style="font-size:11px;color:#ffe0a0">'+line.stops.map(st=>escapeHTML(st.name)).join(' → ')+'</div></div>').join('');
   content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚏 Transport collectif</h3><p style="font-size:11px;color:#c6d8e5">Trajets provisoires de jeu construits à partir des arrêts cartographiés. Ils ne représentent pas les itinéraires officiels.</p><h4>🚌 Lignes simulées</h4>'+lines+'<h4>📍 Arrêts autour de moi</h4>'+rows+'<button id="transportRefresh">Actualiser ma position</button><button id="transportMap">Voir la carte</button>';
   document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
