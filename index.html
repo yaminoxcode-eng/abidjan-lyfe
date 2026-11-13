@@ -964,20 +964,20 @@ function buildOSMNodePlaces(elements,nodes){
   for(const el of tagged){
     if(shown>=1800)break;
     const p=nodes.get(el.id),t=el.tags||{};
-    const isStop=t.highway==='bus_stop'||t.public_transport==='platform'||t.public_transport==='stop_position'||t.amenity==='bus_station'||t.amenity==='ferry_terminal';
+    const isStop=t.highway==='bus_stop'||t.public_transport==='platform'||t.public_transport==='stop_position'||t.amenity==='bus_station'||t.amenity==='ferry_terminal'||t.public_transport==='station';
     const isEducation=['school','university','college','kindergarten'].includes(t.amenity)||['school','university','college'].includes(t.building);
     const type=t.shop?'commerce':t.amenity==='university'||t.amenity==='college'||t.building==='university'?'universite':isEducation?'ecole':t.amenity==='hospital'||t.amenity==='clinic'?'sante':t.amenity==='place_of_worship'?'culte':isStop?'transport':t.tourism?'tourisme':'service';
     const name=t.name||t['name:fr']||t.shop||t.amenity||t.office||t.tourism||(isStop?'Arrêt de transport': 'Lieu de quartier');
     const key=Math.round(p.x/8)+':'+Math.round(p.z/8);
     if(isStop){
       if(!transportStops.some(st=>Math.hypot(st.x-p.x,st.z-p.z)<12)){
-        const mode=t.amenity==='ferry_terminal'?'Bateau':t.amenity==='bus_station'?'Gare de bus':t.operator==='SOTRA'?'Bus SOTRA':t.highway==='bus_stop'?'Bus / gbaka':'Arrêt gbaka / bus';
+        const mode=t.amenity==='ferry_terminal'?'Bateau':t.amenity==='bus_station'||t.public_transport==='station'?'Gare / station':t.operator==='SOTRA'?'Bus SOTRA':t.highway==='bus_stop'?'Bus / gbaka':'Arrêt gbaka / bus';
         transportStops.push({x:p.x,z:p.z,name,mode,operator:t.operator||'',commune:getCommuneZoneAt(p.x,p.z)?.name||'Abidjan'});
       }
     }
     if(seen.has(key))continue;seen.add(key);
     addPOI(p.x,p.z,type,name,t);shown++;
-    if(t.shop||t.highway==='bus_stop'||t.public_transport==='platform'||t.amenity==='bus_station'){
+    if(t.shop||t.highway==='bus_stop'||t.public_transport==='platform'||t.public_transport==='station'||t.amenity==='bus_station'){
       const base=new THREE.Mesh(new THREE.BoxGeometry(t.shop?1.1:1.5,.12,t.shop?1.1:.65),new THREE.MeshLambertMaterial({color:t.shop?0x9a6037:0x667b80}));
       base.position.set(p.x,terrainHeight(p.x,p.z)+.12,p.z);scene.add(base);
       if(isStop){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,2.1,6),new THREE.MeshLambertMaterial({color:0x52666b}));pole.position.set(p.x,terrainHeight(p.x,p.z)+1.15,p.z);scene.add(pole);}
