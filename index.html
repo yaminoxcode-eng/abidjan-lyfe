@@ -2869,6 +2869,7 @@ function closePhone(){
   const apps=document.getElementById('phoneApps');if(apps)apps.style.display='grid';
   if(renderer&&!dialogOpen&&!panelOpen&&!mapOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();
 }
+function escapeHTML(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function renderTransportApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const px=player?player.position.x:0,pz=player?player.position.z:0;
