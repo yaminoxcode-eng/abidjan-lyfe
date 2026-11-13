@@ -179,7 +179,7 @@
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
-    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
+    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
     <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
@@ -245,6 +245,7 @@ let initialHomeEntered = false;
 let residentialDoorCount = 0;
 let trafficGraph = new Map();
 let transportStops = [];
+let activeYangoRide = null;
 
 // Quartiers positionnés de façon relative (Plateau centre-affaires, Cocody est, Yop ouest, etc.)
 const QUARTIERS = [
@@ -2914,6 +2915,72 @@ function closePhone(){
   if(renderer&&!dialogOpen&&!panelOpen&&!mapOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();
 }
 function escapeHTML(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+
+function nearestTrafficNode(x,z){
+ let best=null,dist=Infinity;
+ for(const key of trafficGraph.keys()){const [nx,nz]=key.split(':').map(Number),d=Math.hypot(nx-x,nz-z);if(d<dist){dist=d;best=key;}}
+ return best&&dist<180?best:null;
+}
+function buildYangoRoadPath(sx,sz,tx,tz){
+ if(!trafficGraph||trafficGraph.size<2)return null;
+ const start=nearestTrafficNode(sx,sz),goal=nearestTrafficNode(tx,tz);if(!start||!goal)return null;
+ const parse=k=>{const [x,z]=k.split(':').map(Number);return {x,z};};
+ const g=new Map([[start,0]]),prev=new Map(),open=[{key:start,f:Math.hypot(parse(start).x-parse(goal).x,parse(start).z-parse(goal).z)}],closed=new Set();
+ let found=false,steps=0;
+ while(open.length&&steps++<5000){
+  open.sort((a,b)=>a.f-b.f);const cur=open.shift();if(closed.has(cur.key))continue;
+  if(cur.key===goal){found=true;break;}closed.add(cur.key);
+  const base=g.get(cur.key),p=parse(cur.key);
+  for(const edge of trafficGraph.get(cur.key)||[]){
+   const q=edge.forward?edge.seg.b:edge.seg.a,next=trafficNodeKey(q);if(closed.has(next))continue;
+   const cost=Math.hypot(q.x-p.x,q.z-p.z),tent=base+cost;
+   if(tent<(g.get(next)??Infinity)){g.set(next,tent);prev.set(next,cur.key);const h=Math.hypot(q.x-parse(goal).x,q.z-parse(goal).z);open.push({key:next,f:tent+h});}
+  }
+ }
+ if(!found)return null;
+ const keys=[goal];while(keys[0]!==start){const p=prev.get(keys[0]);if(!p)return null;keys.unshift(p);}
+ const points=[{x:sx,z:sz},...keys.map(parse),{x:tx,z:tz}],clean=[];
+ points.forEach(p=>{if(!clean.length||Math.hypot(p.x-clean[clean.length-1].x,p.z-clean[clean.length-1].z)>1)clean.push(p);});
+ return clean;
+}
+function makeYangoTaxi(){
+ const g=new THREE.Group(),body=new THREE.Mesh(new THREE.BoxGeometry(2.05,.72,4.05),new THREE.MeshLambertMaterial({color:0xf1c94b}));
+ body.position.y=.72;body.castShadow=true;g.add(body);
+ const roof=new THREE.Mesh(new THREE.BoxGeometry(1.55,.62,1.85),new THREE.MeshLambertMaterial({color:0xe6e9e7}));roof.position.set(0,1.34,-.1);g.add(roof);
+ const glass=new THREE.Mesh(new THREE.BoxGeometry(1.58,.4,1.95),new THREE.MeshLambertMaterial({color:0x34596a}));glass.position.set(0,1.38,-.1);g.add(glass);
+ const wheelMat=new THREE.MeshLambertMaterial({color:0x202326});
+ for(const x of [-.98,.98])for(const z of [-1.25,1.25]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.2,10),wheelMat);w.rotation.z=Math.PI/2;w.position.set(x,.38,z);g.add(w);}
+ const sign=new THREE.Mesh(new THREE.BoxGeometry(.65,.16,.28),new THREE.MeshLambertMaterial({color:0xffefaa}));sign.position.set(0,1.75,0);g.add(sign);return g;
+}
+function renderYangoApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ if(activeYangoRide){const r=activeYangoRide;content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚖 Yango ABJ</h3><div style="padding:12px;border-radius:12px;background:#ffffff12"><b>'+(r.phase==='pickup'?'Chauffeur en route':r.phase==='riding'?'Trajet en cours':'Course terminée')+'</b><p style="font-size:12px;color:#d7e3ea">'+escapeHTML(r.destination.nom)+'</p><p>'+Math.round(r.progress*100)+' % du trajet</p><p>Prix estimé : '+r.fare.toLocaleString('fr-FR')+' FCFA</p><p id="yangoRideStatus">'+(r.phase==='pickup'?'Le chauffeur arrive à ton point de prise en charge…':'Le taxi te conduit à destination.')+'</p></div><button id="yangoCancel">Annuler la course</button>';document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};document.getElementById('yangoCancel').onclick=cancelYangoRide;return;}
+ const px=player?player.position.x:0,pz=player?player.position.z:0;
+ const candidates=poi.filter(p=>p.nom&&p.nom.length>2&&Math.hypot(p.x-px,p.z-pz)>25&&Math.hypot(p.x-px,p.z-pz)<Math.min(CITY_SIZE*.72,5000)).sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,30);
+ const options=candidates.map((p,i)=>{const d=Math.hypot(p.x-px,p.z-pz),fare=Math.max(700,Math.round((d/1000*650+500)/100)*100);return '<option value="'+i+'">'+escapeHTML(p.nom)+' · '+Math.round(d)+' m · '+fare.toLocaleString('fr-FR')+' F</option>';}).join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚖 Yango ABJ</h3><p style="font-size:12px;color:#c6d8e5">Choisis une destination cartographiée autour de toi. Le tarif est une estimation de la simulation, pas un tarif réel Yango.</p><label for="yangoDestination">Où vas-tu ?</label><select id="yangoDestination" style="width:100%;padding:10px;margin:8px 0;background:#183447;color:white;border-radius:8px">'+(options||'<option value="">Aucun lieu proche</option>')+'</select><div id="yangoQuote" style="padding:10px;background:#ffffff10;border-radius:9px;font-size:12px">Le prix et la distance estimés s’afficheront ici.</div><button id="yangoRequest" '+(!candidates.length?'disabled':'')+'>Commander un chauffeur</button><p id="yangoStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ const select=document.getElementById('yangoDestination'),quote=document.getElementById('yangoQuote'),request=document.getElementById('yangoRequest');
+ const update=()=>{const d=candidates[Number(select.value)];if(!d){quote.textContent='Choisis un lieu.';return;}const dist=Math.hypot(d.x-px,d.z-pz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);quote.innerHTML='<b>'+Math.round(dist)+' m à vol d’oiseau</b><br>Prix estimé : <b>'+fare.toLocaleString('fr-FR')+' FCFA</b><br>Prise en charge : ta position actuelle';};
+ select.addEventListener('change',update);if(candidates.length)update();
+ request.onclick=()=>{const d=candidates[Number(select.value)];if(!d)return;const dist=Math.hypot(d.x-px,d.z-pz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);if(lifeState.money<fare){document.getElementById('yangoStatus').textContent='Solde insuffisant pour cette course.';return;}const path=buildYangoRoadPath(px,pz,d.x,d.z);const points=path||[{x:px,z:pz},{x:d.x,z:d.z}];activeYangoRide={destination:d,fare,phase:'pickup',progress:0,pickup:3,points,index:0,segmentProgress:0,startMoney:lifeState.money,taxi:makeYangoTaxi(),routeMapped:!!path};const start=points[0];activeYangoRide.taxi.position.set(start.x,terrainHeight(start.x,start.z),start.z);scene.add(activeYangoRide.taxi);renderYangoApp();};
+}
+function cancelYangoRide(){
+ if(!activeYangoRide)return;const r=activeYangoRide;if(r.taxi&&scene)scene.remove(r.taxi);
+ if(r.phase==='riding'&&player){player.visible=true;player.position.set(r.lastPosition.x,terrainHeight(r.lastPosition.x,r.lastPosition.z)+.03,r.lastPosition.z);}
+ activeYangoRide=null;showMessage('Course Yango annulée. Aucun paiement effectué.');renderYangoApp();
+}
+function updateYangoRide(delta){
+ const r=activeYangoRide;if(!r||!player)return;
+ if(r.phase==='pickup'){r.pickup-=delta;r.taxi.position.x=player.position.x+Math.sin(r.pickup*2)*2;r.taxi.position.z=player.position.z+Math.cos(r.pickup*2)*2;r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z);if(r.pickup<=0){r.phase='riding';r.lastPosition={x:player.position.x,z:player.position.z};player.visible=false;}}
+ if(r.phase==='riding'){
+  let budget=delta*30;
+  while(budget>0&&r.index<r.points.length-1){const a=r.points[r.index],b=r.points[r.index+1],len=Math.hypot(b.x-a.x,b.z-a.z)||.001,remain=len-r.segmentProgress,step=Math.min(remain,budget);r.segmentProgress+=step;budget-=step;const t=r.segmentProgress/len;r.taxi.position.set(a.x+(b.x-a.x)*t,terrainHeight(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t),a.z+(b.z-a.z)*t);r.taxi.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);r.progress=(r.index+t)/(r.points.length-1);if(r.segmentProgress>=len-.001){r.index++;r.segmentProgress=0;}}
+  r.lastPosition={x:r.taxi.position.x,z:r.taxi.position.z};
+  if(r.index>=r.points.length-1){const dest=r.destination;player.visible=true;player.position.set(dest.x,terrainHeight(dest.x,dest.z)+.03,dest.z);player.rotation.y=r.taxi.rotation.y;lifeState.money=Math.max(0,lifeState.money-r.fare);lifeState.bankTransactions.push({type:'debit',label:'Yango : '+dest.nom,amount:r.fare,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);if(r.taxi)scene.remove(r.taxi);activeYangoRide=null;saveLifeProgress(false);showMessage('🚖 Arrivée à '+dest.nom+' · '+r.fare.toLocaleString('fr-FR')+' FCFA débités.');renderYangoApp();}
+ }
+}
+
 function renderTransportApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const px=player?player.position.x:0,pz=player?player.position.z:0;
@@ -3134,6 +3201,7 @@ function openPhoneApp(app){
   if(app==='camera'){closePhone();openGameCamera();return;}
   if(app==='gallery'){renderGameGallery();}
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
+  if(app==='yango'){apps.style.display='none';content.style.display='block';renderYangoApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
@@ -3144,12 +3212,12 @@ function openPhoneApp(app){
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
-    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
+    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Achète des produits et retrouve-les dans ton sac.',jumia:'Achète des meubles et installe-les dans ton logement.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
@@ -3250,6 +3318,7 @@ function animate() {
   const delta = Math.min(clock.getDelta(), 0.1);
   try {
     updateLifeSimulation(delta);
+    updateYangoRide(delta);
     updateElevatorTravel(delta);
     updatePlayer(delta);
     npcUpdateAccumulator+=delta;
