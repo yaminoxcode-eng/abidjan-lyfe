@@ -2991,6 +2991,11 @@ function makeJumiaFurniture(item,x,z){
  }
  g.position.set(x,0,z);return g;
 }
+function addJumiaCollider(interior,item,x,z){
+ if(!interior)return;interior.colliders=interior.colliders||[];
+ const dims={sofa:[2.75,1.35],bed:[2.45,2.85],table:[2.0,1.35],tv:[2.05,.7],fridge:[1.25,1.05],plant:[.8,.8]}[item.kind]||[1,1];
+ interior.colliders.push({x,z,w:dims[0],d:dims[1]});
+}
 function restoreHomeDecor(interior){
  if(!interior||!interior.doorId)return;
  const key=interior.doorId,records=lifeState.homeDecor&&lifeState.homeDecor[key]||[];
@@ -2999,7 +3004,7 @@ function restoreHomeDecor(interior){
   const sig=rec.itemId+'|'+rec.floor+'|'+rec.x.toFixed(2)+'|'+rec.z.toFixed(2);
   if(interior.decorLoaded.has(sig))return;
   const item=ABJ_JUMIA_ITEMS.find(x=>x.id===rec.itemId),floor=interior.floors[rec.floor];if(!item||!floor)return;
-  const obj=makeJumiaFurniture(item,rec.x,rec.z);floor.add(obj);
+  const obj=makeJumiaFurniture(item,rec.x,rec.z);floor.add(obj);addJumiaCollider(interior,item,rec.x,rec.z);
   const type=item.kind==='sofa'?'assoir':item.kind==='bed'?'dormir':'regarder';
   interior.interactables.push({x:rec.x,z:rec.z,type,label:item.name,floor:rec.floor,object:obj});
   interior.decorLoaded.add(sig);
@@ -3023,7 +3028,7 @@ function renderJumiaApp(){
   const it=ABJ_JUMIA_ITEMS.find(x=>x.id===btn.dataset.jumiaPlace);if(!it||!currentInterior||(lifeState.inventory[it.id]||0)<1)return;
   const gp=currentInterior.group.position,localX=Math.max(-currentInterior.roomW/2+1.8,Math.min(currentInterior.roomW/2-1.8,player.position.x-gp.x)),localZ=Math.max(-currentInterior.roomD/2+1.8,Math.min(currentInterior.roomD/2-1.8,player.position.z-gp.z-2.2));
   const floor=Math.max(0,Math.min(currentFloor,currentInterior.floors.length-1)),obj=makeJumiaFurniture(it,localX,localZ);currentInterior.floors[floor].add(obj);
-  const type=it.kind==='sofa'?'assoir':it.kind==='bed'?'dormir':'regarder';currentInterior.interactables.push({x:localX,z:localZ,type,label:it.name,floor,object:obj});
+  const type=it.kind==='sofa'?'assoir':it.kind==='bed'?'dormir':'regarder';currentInterior.interactables.push({x:localX,z:localZ,type,label:it.name,floor,object:obj});addJumiaCollider(currentInterior,it,localX,localZ);currentInterior.decorLoaded=currentInterior.decorLoaded||new Set();currentInterior.decorLoaded.add(it.id+'|'+floor+'|'+localX.toFixed(2)+'|'+localZ.toFixed(2));
   lifeState.homeDecor=lifeState.homeDecor||{};const key=currentInterior.doorId;lifeState.homeDecor[key]=lifeState.homeDecor[key]||[];lifeState.homeDecor[key].push({itemId:it.id,x:localX,z:localZ,floor});
   lifeState.homeDecor[key]=lifeState.homeDecor[key].slice(-40);lifeState.inventory[it.id]--;if(!lifeState.inventory[it.id])delete lifeState.inventory[it.id];
   saveLifeProgress(false);renderJumiaApp();const st=document.getElementById('jumiaStatus');if(st)st.textContent=it.name+' installé dans ton logement. Tu peux l’utiliser avec F à proximité.';
