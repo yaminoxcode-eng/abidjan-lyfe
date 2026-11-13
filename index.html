@@ -235,18 +235,18 @@ function createAbidjanTerrain(){
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geo.setIndex(indices);geo.computeVertexNormals();
   // Sol tropical texturé : variation d'herbe, terre et petites touffes, sans image externe.
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;
-  const ctx=canvas.getContext('2d');ctx.fillStyle='#789b58';ctx.fillRect(0,0,512,512);
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#aaa58e';ctx.fillRect(0,0,512,512);
   let seed=481516;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   for(let i=0;i<24000;i++){
     const x=rand()*512,y=rand()*512,r=.35+rand()*1.25;
-    ctx.fillStyle=rand()>.54?'rgba(37,82,37,.22)':'rgba(206,190,112,.17)';
+    ctx.fillStyle=rand()>.78?'rgba(70,91,57,.13)':'rgba(124,111,83,.10)';
     ctx.beginPath();ctx.ellipse(x,y,r*1.8,r*.65,rand()*Math.PI,0,Math.PI*2);ctx.fill();
   }
   for(let i=0;i<1800;i++){
-    const x=rand()*512,y=rand()*512;ctx.strokeStyle='rgba(34,94,38,.32)';ctx.lineWidth=.8;
+    const x=rand()*512,y=rand()*512;ctx.strokeStyle='rgba(76,91,55,.12)';ctx.lineWidth=.65;
     ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+(rand()-.5)*3,y-1-rand()*3);ctx.stroke();
   }
-  const grass=new THREE.CanvasTexture(canvas);grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(170,170);
+  const grass=new THREE.CanvasTexture(canvas);grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(58,58);
   grass.anisotropy=Math.min(8,renderer&&renderer.capabilities?renderer.capabilities.getMaxAnisotropy():4);
   const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:grass,color:0xffffff}));mesh.receiveShadow=true;scene.add(mesh);return mesh;
 }
@@ -407,6 +407,7 @@ function onKeyDown(e) {
   const k = e.key.toLowerCase();
   if (k === ' ' && !keys[' ']) jumpQueued = true;
   keys[k] = true;
+  if(k==='enter' && dialogOpen){const first=document.querySelector('#dialog .choices button');if(first){first.click();e.preventDefault();return;}}
   if (e.repeat) return;
   if (k === 'escape') {
     if(elevatorMenuOpen)closeElevatorMenu();
@@ -414,6 +415,7 @@ function onKeyDown(e) {
     if (mapOpen) closeBigMap();
     if (document.pointerLockElement) document.exitPointerLock();
   }
+  if(k==='f'&&activeYangoRide&&activeYangoRide.phase==='pickup'){boardYangoTaxi();keys['f']=false;return;}
   if (k === 'f' && worldReady && currentInterior && !dialogOpen && !panelOpen && !mapOpen && !elevatorTravel && !elevatorMenuOpen) {
     interactWithFurniture(); keys['f'] = false; return;
   }
@@ -2518,9 +2520,10 @@ function resolveInteriorCollisions(pos,interior,radius){
 
 function startPlayerAtHome(){
   if(initialHomeEntered||!player||!doors.length)return;
-  let nearest=null,best=Infinity;
-  doors.forEach(d=>{if(!d.home)return;const dist=Math.hypot(player.position.x-d.x,player.position.z-d.z);if(dist<best){best=dist;nearest=d;}});
-  if(!nearest)return;
+  const homes=doors.filter(d=>d.home&&interiors[d.id]&&!d.buildingType);
+  if(!homes.length)return;
+  const pool=homes.filter(d=>Math.hypot(d.x,d.z)<8500),choices=pool.length?pool:homes;
+  const nearest=choices[Math.floor(Math.random()*choices.length)];
   player.position.set(nearest.x+nearest.normal.x*3.6,terrainHeight(nearest.x+nearest.normal.x*3.6,nearest.z+nearest.normal.z*3.6)+.02,nearest.z+nearest.normal.z*3.6);
   initialHomeEntered=true;
   enterBuilding(nearest);
@@ -2685,7 +2688,7 @@ function updatePlayer(delta) {
     while (diff < -Math.PI) diff += Math.PI * 2;
     player.rotation.y += diff * Math.min(1, delta * 10);
   }
-  let speed = (keys['shift'] ? 13.5 : 5.2) * delta * (lifeState.energy<12?.68:lifeState.energy<28?.84:1);
+  let speed = (keys['shift'] ? 15.2 : 6.6) * delta * (lifeState.energy<12?.68:lifeState.energy<28?.84:1);
   const newPos = player.position.clone();
   newPos.x += move.x * speed;
   newPos.z += move.z * speed;
@@ -3049,7 +3052,7 @@ function makeYangoTaxi(){
 }
 function renderYangoApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
- if(activeYangoRide){const r=activeYangoRide;content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚖 Yango ABJ</h3><div style="padding:12px;border-radius:12px;background:#ffffff12"><b>'+(r.phase==='pickup'?'Chauffeur en route':r.phase==='riding'?'Trajet en cours':'Course terminée')+'</b><p style="font-size:12px;color:#d7e3ea">'+escapeHTML(r.destination.nom)+'</p><p>'+Math.round(r.progress*100)+' % du trajet</p><p>Prix estimé : '+r.fare.toLocaleString('fr-FR')+' FCFA</p><p id="yangoRideStatus">'+(r.phase==='pickup'?'Le chauffeur arrive à ton point de prise en charge…':'Le taxi te conduit à destination. '+(r.routeMapped?'Itinéraire routier cartographié.':'Trajet direct de secours : réseau routier non disponible.'))+'</p></div><button id="yangoCancel">Annuler la course</button>';document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};document.getElementById('yangoCancel').onclick=cancelYangoRide;return;}
+ if(activeYangoRide){const r=activeYangoRide;content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚖 Yango ABJ</h3><div style="padding:12px;border-radius:12px;background:#ffffff12"><b>'+(r.phase==='pickup'?'Chauffeur arrivé · F pour monter':r.phase==='riding'?'Trajet en cours':'Course terminée')+'</b><p style="font-size:12px;color:#d7e3ea">'+escapeHTML(r.destination.nom)+'</p><p>'+Math.round(r.progress*100)+' % du trajet</p><p>Prix estimé : '+r.fare.toLocaleString('fr-FR')+' FCFA</p><p id="yangoRideStatus">'+(r.phase==='pickup'?'Le taxi est arrêté sur la chaussée. Approche-toi et appuie sur F pour monter.':'Tu es à bord : la caméra suit le véhicule. '+(r.routeMapped?'Itinéraire routier cartographié.':'Trajet direct de secours : réseau routier non disponible.'))+'</p></div><button id="yangoCancel">Annuler la course</button>';document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};document.getElementById('yangoCancel').onclick=cancelYangoRide;return;}
  const pickup=currentInterior&&lastExteriorPosition?lastExteriorPosition:(player?player.position:{x:0,z:0});const px=pickup.x,pz=pickup.z;
  const candidates=poi.filter(p=>p.nom&&p.nom.length>2&&Math.hypot(p.x-px,p.z-pz)>25&&Math.hypot(p.x-px,p.z-pz)<Math.min(CITY_SIZE*.72,12000)).sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,30);
  const options=candidates.map((p,i)=>{const d=Math.hypot(p.x-px,p.z-pz),fare=Math.max(700,Math.round((d/1000*650+500)/100)*100);return '<option value="'+i+'">'+escapeHTML(p.nom)+' · '+Math.round(d)+' m · '+fare.toLocaleString('fr-FR')+' F</option>';}).join('');
@@ -3058,22 +3061,39 @@ function renderYangoApp(){
  const select=document.getElementById('yangoDestination'),quote=document.getElementById('yangoQuote'),request=document.getElementById('yangoRequest');
  const update=()=>{const d=candidates[Number(select.value)];if(!d){quote.textContent='Choisis un lieu.';return;}const dist=Math.hypot(d.x-px,d.z-pz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);quote.innerHTML='<b>'+Math.round(dist)+' m à vol d’oiseau</b><br>Prix estimé : <b>'+fare.toLocaleString('fr-FR')+' FCFA</b><br>Prise en charge : ta position actuelle';};
  select.addEventListener('change',update);if(candidates.length)update();
- request.onclick=()=>{const d=candidates[Number(select.value)];if(!d)return;if(currentApartment)leaveApartment();if(currentInterior)exitBuilding();const sx=player.position.x,sz=player.position.z;const dist=Math.hypot(d.x-sx,d.z-sz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);if(lifeState.money<fare){document.getElementById('yangoStatus').textContent='Solde insuffisant pour cette course.';return;}const path=buildYangoRoadPath(sx,sz,d.x,d.z);const points=path||[{x:sx,z:sz},{x:d.x,z:d.z}];activeYangoRide={destination:d,fare,phase:'pickup',progress:0,pickup:3,points,index:0,segmentProgress:0,startMoney:lifeState.money,taxi:makeYangoTaxi(),routeMapped:!!path};const start=points[0];activeYangoRide.taxi.position.set(start.x,terrainHeight(start.x,start.z),start.z);scene.add(activeYangoRide.taxi);renderYangoApp();};
+ request.onclick=()=>{const d=candidates[Number(select.value)];if(!d)return;if(currentApartment)leaveApartment();if(currentInterior)exitBuilding();const sx=player.position.x,sz=player.position.z;const dist=Math.hypot(d.x-sx,d.z-sz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);if(lifeState.money<fare){document.getElementById('yangoStatus').textContent='Solde insuffisant pour cette course.';return;}const path=buildYangoRoadPath(sx,sz,d.x,d.z);const points=path||[{x:sx,z:sz},{x:d.x,z:d.z}];activeYangoRide={destination:d,fare,phase:'pickup',progress:0,points,index:0,segmentProgress:0,startMoney:lifeState.money,taxi:makeYangoTaxi(),routeMapped:!!path,playerScale:player.scale.clone(),boarded:false};const start=points[0];activeYangoRide.taxi.position.set(start.x,terrainHeight(start.x,start.z)+.02,start.z);scene.add(activeYangoRide.taxi);showMessage('🚖 Le chauffeur est arrivé sur la chaussée. Approche-toi et appuie sur F pour monter.');renderYangoApp();};
 }
 function cancelYangoRide(){
- if(!activeYangoRide)return;const r=activeYangoRide;if(r.taxi&&scene)scene.remove(r.taxi);
- if(r.phase==='riding'&&player){player.visible=true;player.position.set(r.lastPosition.x,terrainHeight(r.lastPosition.x,r.lastPosition.z)+.03,r.lastPosition.z);}
+ if(!activeYangoRide)return;const r=activeYangoRide;
+ if(r.boarded&&player){const worldPos=r.taxi.getWorldPosition(new THREE.Vector3());r.taxi.remove(player);scene.add(player);player.scale.copy(r.playerScale||new THREE.Vector3(1,1,1));player.visible=true;player.position.set(worldPos.x,terrainHeight(worldPos.x,worldPos.z)+.03,worldPos.z);}
+ if(r.taxi&&scene)scene.remove(r.taxi);
  activeYangoRide=null;showMessage('Course Yango annulée. Aucun paiement effectué.');renderYangoApp();
 }
+function boardYangoTaxi(){
+ const r=activeYangoRide;if(!r||r.phase!=='pickup'||!player||r.boarded)return;
+ const distance=Math.hypot(player.position.x-r.taxi.position.x,player.position.z-r.taxi.position.z);
+ if(distance>16){showMessage('Le taxi attend sur la route. Approche-toi du véhicule pour monter.');return;}
+ r.phase='riding';r.boarded=true;r.lastPosition={x:r.taxi.position.x,z:r.taxi.position.z};
+ scene.remove(player);r.taxi.add(player);player.position.set(0,.82,-.25);player.rotation.set(0,0,0);player.scale.set(.58,.58,.58);player.visible=true;
+ showMessage('Tu es dans le Yango. La caméra suivra le taxi jusqu’à destination.');renderYangoApp();
+}
+
 function updateYangoRide(delta){
  const r=activeYangoRide;if(!r||!player)return;
- if(r.phase==='pickup'){r.pickup-=delta;r.taxi.position.x=player.position.x+Math.sin(r.pickup*2)*2;r.taxi.position.z=player.position.z+Math.cos(r.pickup*2)*2;r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z);if(r.pickup<=0){r.phase='riding';r.lastPosition={x:player.position.x,z:player.position.z};player.visible=false;}}
+ if(r.phase==='pickup'){r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z)+.02;}
  if(r.phase==='riding'){
   let budget=delta*11.5;
   while(budget>0&&r.index<r.points.length-1){const a=r.points[r.index],b=r.points[r.index+1],len=Math.hypot(b.x-a.x,b.z-a.z)||.001,remain=len-r.segmentProgress,step=Math.min(remain,budget);r.segmentProgress+=step;budget-=step;const t=r.segmentProgress/len;r.taxi.position.set(a.x+(b.x-a.x)*t,terrainHeight(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t),a.z+(b.z-a.z)*t);r.taxi.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);r.progress=(r.index+t)/(r.points.length-1);if(r.segmentProgress>=len-.001){r.index++;r.segmentProgress=0;}}
   r.lastPosition={x:r.taxi.position.x,z:r.taxi.position.z};
-  if(r.index>=r.points.length-1){const dest=r.destination;player.visible=true;player.position.set(dest.x,terrainHeight(dest.x,dest.z)+.03,dest.z);player.rotation.y=r.taxi.rotation.y;lifeState.money=Math.max(0,lifeState.money-r.fare);lifeState.bankTransactions.push({type:'debit',label:'Yango : '+dest.nom,amount:r.fare,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);if(r.taxi)scene.remove(r.taxi);activeYangoRide=null;saveLifeProgress(false);showMessage('🚖 Arrivée à '+dest.nom+' · '+r.fare.toLocaleString('fr-FR')+' FCFA débités.');renderYangoApp();}
+  if(r.index>=r.points.length-1){const dest=r.destination;const taxiPos=r.taxi.position.clone();r.taxi.remove(player);scene.add(player);player.scale.copy(r.playerScale||new THREE.Vector3(1,1,1));player.visible=true;player.position.set(dest.x,terrainHeight(dest.x,dest.z)+.03,dest.z);player.rotation.y=r.taxi.rotation.y;lifeState.money=Math.max(0,lifeState.money-r.fare);lifeState.bankTransactions.push({type:'debit',label:'Yango : '+dest.nom,amount:r.fare,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);if(r.taxi)scene.remove(r.taxi);activeYangoRide=null;saveLifeProgress(false);showMessage('🚖 Arrivée à '+dest.nom+' · '+r.fare.toLocaleString('fr-FR')+' FCFA débités.');renderYangoApp();}
  }
+}
+
+function updateYangoCamera(delta){
+ const r=activeYangoRide;if(!r||r.phase!=='riding'||!r.boarded||!camera)return;
+ const target=r.taxi.position,dist=10*cameraZoom,height=5.2*cameraZoom;
+ const desired=new THREE.Vector3(target.x+Math.sin(cameraYaw)*dist,target.y+height,target.z+Math.cos(cameraYaw)*dist);
+ camera.position.lerp(desired,1-Math.pow(.001,delta));camera.lookAt(target.x,target.y+1.0,target.z);
 }
 
 function renderTransportApp(){
@@ -3552,6 +3572,7 @@ function animate() {
   try {
     updateLifeSimulation(delta);
     updateYangoRide(delta);
+    updateYangoCamera(delta);
     updateElevatorTravel(delta);
     updatePlayer(delta);
     npcUpdateAccumulator+=delta;
