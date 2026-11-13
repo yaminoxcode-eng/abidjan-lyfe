@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2748,6 +2748,8 @@ function loadLifeProgress(){
       if(Number.isFinite(saved[k])) lifeState[k]=Math.max(0,Math.min(k==='hour'?23:(k==='minute'?59:100),saved[k]));
     });
     if(typeof saved.job==='string')lifeState.job=saved.job;
+    if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
+    if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
 }
@@ -2756,7 +2758,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2816,7 +2818,8 @@ function interactWithCityLife(){
     lifeState.social=Math.min(100,lifeState.social+19);
     lifeState.energy=Math.max(0,lifeState.energy-1);
     const name=bestNPC.userData.name||'un habitant';
-    showMessage('👋 Tu échanges quelques mots avec '+name+'. +19 Social');
+    const contact=abjEnsureContact(bestNPC);lifeState.activeContact=contact.id;
+    showMessage('👋 Tu échanges quelques mots avec '+name+'. Ajouté à tes contacts. +19 Social');
     saveLifeProgress(false);return true;
   }
   let bestPOI=null,bestDist=13;
@@ -2924,6 +2927,9 @@ const ABJ_JOBS=[
   {name:'Agent d’accueil',sector:'Bureau',salary:1500,start:8,end:17},
   {name:'Employé de maquis',sector:'Restauration',salary:1300,start:10,end:23}
 ];
+function abjEnsureContact(npc){lifeState.contacts=lifeState.contacts||[];const name=String(npc.userData.name||'Habitant').trim();const id='npc-'+Math.round(npc.position.x*2)+'-'+Math.round(npc.position.z*2)+'-'+name.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12);let c=lifeState.contacts.find(x=>x.id===id);if(!c){c={id,name,relation:1,firstMet:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')};lifeState.contacts.push(c);}else c.relation=Math.min(100,(c.relation||1)+2);lifeState.contacts=lifeState.contacts.slice(-100);return c;}
+function renderContactsApp(){const content=document.getElementById('phoneAppContent');if(!content)return;const contacts=lifeState.contacts||[];const list=contacts.map(c=>'<div style="padding:10px;margin:7px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><b>👤 '+escapeHTML(c.name)+'</b><div style="font-size:11px;color:#c6d8e5">Relation : '+(c.relation||1)+'/100 · rencontré à '+escapeHTML(c.firstMet||'Abidjan')+'</div><button data-chat="'+escapeHTML(c.id)+'" style="margin-top:7px">Envoyer un message</button></div>').join('');content.innerHTML='<button id="phoneBack">← Applications</button><h3>👥 Mes contacts</h3><p style="font-size:12px;color:#c6d8e5">Les habitants deviennent des contacts après une conversation dans la ville.</p>'+(list||'<p>Aucun contact. Approche-toi d’un habitant et appuie sur E pour lui parler.</p>');document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};content.querySelectorAll('[data-chat]').forEach(btn=>btn.onclick=()=>{lifeState.activeContact=btn.dataset.chat;saveLifeProgress(false);renderMessagesApp();});}
+function renderMessagesApp(){const content=document.getElementById('phoneAppContent');if(!content)return;const contacts=lifeState.contacts||[];const selected=contacts.find(c=>c.id===lifeState.activeContact)||contacts[0];const history=selected?(lifeState.messages||[]).filter(m=>m.contactId===selected.id).slice(-12):[];const log=history.map(m=>'<div style="margin:6px 0;padding:8px;border-radius:9px;background:'+(m.from==='player'?'#176b75':'#ffffff18')+';text-align:'+(m.from==='player'?'right':'left')+'"><div style="font-size:10px;color:#c6d8e5">'+(m.from==='player'?'Moi':escapeHTML(selected.name))+' · '+escapeHTML(m.time||'')+'</div>'+escapeHTML(m.text)+'</div>').join('');const options=contacts.map(c=>'<option value="'+escapeHTML(c.id)+'" '+(selected&&c.id===selected.id?'selected':'')+'>'+escapeHTML(c.name)+'</option>').join('');content.innerHTML='<button id="phoneBack">← Applications</button><h3>💬 Messages</h3>'+(selected?'<label style="font-size:12px">Conversation<select id="messageContact" style="display:block;width:100%;padding:9px;margin:6px 0">'+options+'</select></label><div style="max-height:230px;overflow:auto;padding:4px">'+(log||'<p style="font-size:12px;color:#c6d8e5">Début de la conversation. Envoie ton premier message.</p>')+'</div><textarea id="messageDraft" rows="2" maxlength="240" placeholder="Écrire un message..." style="width:100%;padding:9px;border-radius:8px"></textarea><button id="messageSend" style="margin-top:7px">Envoyer</button><p id="messageStatus" style="font-size:11px;color:#ffe0a0"></p>':'<p>Aucune conversation. Rencontre d’abord un habitant pour l’ajouter à tes contacts.</p>');document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};const chooser=document.getElementById('messageContact');if(chooser)chooser.onchange=()=>{lifeState.activeContact=chooser.value;renderMessagesApp();};const send=document.getElementById('messageSend');if(send)send.onclick=()=>{const txt=document.getElementById('messageDraft').value.trim();if(!txt)return;lifeState.messages=lifeState.messages||[];lifeState.messages.push({contactId:selected.id,text:txt,from:'player',time:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.messages=lifeState.messages.slice(-100);lifeState.social=Math.min(100,lifeState.social+2);saveLifeProgress(false);renderMessagesApp();};}
 function renderBankApp(){
   const content=document.getElementById('phoneAppContent');if(!content)return;
   const rows=(lifeState.bankTransactions||[]).slice().reverse().map(t=>{
@@ -2972,10 +2978,12 @@ function openPhoneApp(app){
   if(app==='transport'){apps.style.display='none';content.style.display='block';renderTransportApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
+  if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
+  if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
   const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',travail:'Emploi',boutique:'Boutique',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
-    contacts:'Les habitants que tu rencontres seront ajoutés ici.',
-    messages:'Aucun nouveau message pour le moment.',
+    contacts:'Tes rencontres avec les habitants sont conservées ici.',
+    messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
     transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
