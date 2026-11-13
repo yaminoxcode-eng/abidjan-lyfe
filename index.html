@@ -2376,6 +2376,7 @@ function createNPCs(count) {
       goal, goalTimer: 10 + Math.random() * 22,
       homeX: px, homeZ: pz
     });
+    if(transportStops.length&&Math.random()<.22){let nearest=null,dist=520;for(const st of transportStops){const d=Math.hypot(st.x-px,st.z-pz);if(d<dist){dist=d;nearest=st;}}if(nearest){npc.userData.transitTargetStop=nearest;npc.userData.transitWaiting=false;npc.userData.targetX=nearest.x;npc.userData.targetZ=nearest.z;}}
     scene.add(npc);
     npcs.push(npc);
   }
