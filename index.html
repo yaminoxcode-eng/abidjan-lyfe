@@ -1231,7 +1231,7 @@ function createAbidjanTraffic(count){
     const progress=(forward?t:1-t)*len;
     const roll=Math.random(),type=roll<.19?'gbaka':roll<.33?'taxi':roll<.46?'woro':roll<.64?'moto':roll<.72?'bus':roll<.84?'luxe':'voiture';
     const v=createVehicleMesh(type);v.traverse(o=>{if(o.isMesh)o.castShadow=false;});
-    v.userData={type:'osmTraffic',route,routeIndex:0,progress,laneOffset:Math.min(1.5,r.width*.16),speed:7+Math.random()*7,wreck:false};
+    v.userData={type:'osmTraffic',route,routeIndex:0,progress,laneOffset:Math.min(1.5,r.width*.16),speed:(type==='gbaka'?5.2:type==='bus'?4.6:7+Math.random()*7),wreck:false,transit:type==='gbaka'||type==='bus',transitDwell:0,transitStopCooldown:0,lastTransitStop:null,transitLine:type==='bus'?'SOTRA simulée':'Gbaka simulé'};
     updateTrafficVehiclePose(v);scene.add(v);vehicles.push(v);
   }
 }
@@ -1243,11 +1243,14 @@ function updateTrafficVehiclePose(v){
 }
 function advanceTrafficVehicle(v,delta){
   const d=v.userData;let remaining=d.speed*delta,guard=0;
+  if(d.transit){d.transitStopCooldown=Math.max(0,(d.transitStopCooldown||0)-delta);if((d.transitDwell||0)>0){d.transitDwell=Math.max(0,d.transitDwell-delta);updateTrafficVehiclePose(v);return;}}
   const segNow=d.route&&d.route[d.routeIndex];if(segNow){const dx=segNow.b.x-segNow.a.x,dz=segNow.b.z-segNow.a.z,len=Math.hypot(dx,dz)||1,t=Math.max(0,Math.min(1,d.progress/len)),px=segNow.a.x+dx*t,pz=segNow.a.z+dz*t;let stop=false;
     for(const light of trafficLights){if(Math.hypot(light.x-px,light.z-pz)<18&&light.phase!==2){stop=true;break;}}
     if(!stop)for(const other of vehicles){if(other===v||other.userData.wreck)continue;const gap=Math.hypot(other.position.x-px,other.position.z-pz),ahead=(other.position.x-px)*dx+(other.position.z-pz)*dz;if(gap<5.5&&ahead>0){stop=true;break;}}
     if(!stop)for(const npc of npcs){if(npc.userData.dead||!npc.visible)continue;const gap=Math.hypot(npc.position.x-px,npc.position.z-pz),ahead=(npc.position.x-px)*dx+(npc.position.z-pz)*dz;if(gap<3.8&&ahead>0){stop=true;break;}}
-    if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
+    if(stop){d.speedFactor=Math.max(0,(d.speedFactor||1)-delta*5);updateTrafficVehiclePose(v);return;}
+    if(d.transit&&d.transitStopCooldown<=0&&transportStops.length){const nearby=transportStops.find(st=>Math.hypot(st.x-px,st.z-pz)<9.5&&st.name!==d.lastTransitStop);if(nearby){d.transitDwell=2.8;d.transitStopCooldown=18;d.lastTransitStop=nearby.name;d.speedFactor=0;updateTrafficVehiclePose(v);return;}}
+    d.speedFactor=Math.min(1,(d.speedFactor||1)+delta*1.6);remaining*=d.speedFactor;
   }
   while(remaining>0&&guard++<12){
     let seg=d.route[d.routeIndex];if(!seg)return;
@@ -2875,7 +2878,9 @@ function renderTransportApp(){
   const px=player?player.position.x:0,pz=player?player.position.z:0;
   const near=transportStops.slice().sort((a,b)=>Math.hypot(a.x-px,a.z-pz)-Math.hypot(b.x-px,b.z-pz)).slice(0,12);
   const rows=near.length?near.map(st=>'<div style="padding:9px;margin:7px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(st.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(st.mode)+' · '+escapeHTML(st.commune)+'</div><div style="font-size:11px;color:#ffe0a0">'+(Math.round(Math.hypot(st.x-px,st.z-pz)))+' m de ta position</div></div>').join(''):'<p>Aucun arrêt OSM disponible dans les données chargées.</p>';
-  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚏 Arrêts autour de moi</h3><p style="font-size:11px;color:#c6d8e5">Arrêts cartographiés dans toutes les communes couvertes par la carte.</p>'+rows+'<button id="transportRefresh">Actualiser ma position</button><button id="transportMap">Voir la carte</button>';
+  const lineStops=[...transportStops].sort((a,b)=>a.x-b.x||a.z-b.z);const lineCards=[{name:'Ligne S1 — SOTRA (simulation)',mode:'Bus',stops:lineStops.filter((_,i)=>i%3===0).slice(0,8)},{name:'Ligne G1 — Gbaka (simulation)',mode:'Gbaka',stops:lineStops.filter((_,i)=>i%3===1).slice(0,8)},{name:'Ligne G2 — Gbaka (simulation)',mode:'Gbaka',stops:lineStops.filter((_,i)=>i%3===2).slice(0,8)}];
+  const lines=lineCards.map(line=>'<div style="padding:9px;margin:7px 0;border:1px solid #ffffff30;border-radius:10px;background:#ffffff10"><b>'+escapeHTML(line.name)+'</b><div style="font-size:11px;color:#c6d8e5">'+line.mode+' · '+line.stops.length+' arrêts cartographiés</div><div style="font-size:11px;color:#ffe0a0">'+line.stops.map(st=>escapeHTML(st.name)).join(' → ')+'</div></div>').join('');
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🚏 Transport collectif</h3><p style="font-size:11px;color:#c6d8e5">Trajets provisoires de jeu construits à partir des arrêts cartographiés. Ils ne représentent pas les itinéraires officiels.</p><h4>🚌 Lignes simulées</h4>'+lines+'<h4>📍 Arrêts autour de moi</h4>'+rows+'<button id="transportRefresh">Actualiser ma position</button><button id="transportMap">Voir la carte</button>';
   document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
   document.getElementById('transportRefresh').onclick=renderTransportApp;
   document.getElementById('transportMap').onclick=()=>{closePhone();openBigMap();};
