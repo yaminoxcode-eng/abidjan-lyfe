@@ -2701,7 +2701,7 @@ function updateNPCs(delta) {
       let target=null;
       if(transportStops.length&&Math.random()<.18&&!d.transitRider){const stop=transportStops[Math.floor(Math.random()*transportStops.length)];if(Math.hypot(stop.x-npc.position.x,stop.z-npc.position.z)<260){d.transitTargetStop=stop;d.transitWaiting=false;target=stop;}}
       if(!target&&osmLoaded&&pedestrianNodes.length){const nearby=getNearbyPedestrianNodes(npc.position.x,npc.position.z,140);const pool=nearby.length?nearby:pedestrianNodes;target=pool[Math.floor(Math.random()*pool.length)];}
-      else target={x:npc.position.x+(Math.random()-.5)*100,z:npc.position.z+(Math.random()-.5)*100};
+      if(!target)target={x:npc.position.x+(Math.random()-.5)*100,z:npc.position.z+(Math.random()-.5)*100};
       d.targetX=target.x;d.targetZ=target.z;
     }
     if(d.targetX===undefined){d.targetX=npc.position.x+(Math.random()-.5)*25;d.targetZ=npc.position.z+(Math.random()-.5)*25;}
