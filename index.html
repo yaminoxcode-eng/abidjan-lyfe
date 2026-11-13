@@ -179,7 +179,7 @@
     <button class="phoneApp" data-app="contacts"><span>👥</span>Contacts</button>
     <button class="phoneApp" data-app="messages"><span>💬</span>Messages</button><button class="phoneApp" data-app="google"><span>🔎</span>Google ABJ</button><button class="phoneApp" data-app="youtube"><span>▶️</span>YouTube</button><button class="phoneApp" data-app="tiktok"><span>🎵</span>TikTok</button>
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
-    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button><button class="phoneApp" data-app="sante"><span>🏥</span>Santé</button>
+    <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button><button class="phoneApp" data-app="yango"><span>🚖</span>Yango</button><button class="phoneApp" data-app="mairie"><span>🏛️</span>Mairie</button><button class="phoneApp" data-app="sante"><span>🏥</span>Santé</button><button class="phoneApp" data-app="etudes"><span>🎓</span>Études</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
     <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="jumia"><span>🛋️</span>Jumia</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
@@ -297,7 +297,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2751,6 +2751,7 @@ function loadLifeProgress(){
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
+    if(saved.education&&typeof saved.education==='object')lifeState.education={courseId:typeof saved.education.courseId==='string'?saved.education.courseId:null,remaining:Math.max(0,Math.min(600,Number(saved.education.remaining)||0)),certificates:Array.isArray(saved.education.certificates)?saved.education.certificates.filter(x=>typeof x==='string').slice(0,30):[]};
     if(saved.documents&&typeof saved.documents==='object'&&!Array.isArray(saved.documents))lifeState.documents=Object.fromEntries(Object.entries(saved.documents).filter(([k,v])=>typeof k==='string'&&v&&typeof v.issuedAt==='string').slice(0,30));
     if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,80));
     if(saved.homeDecor&&typeof saved.homeDecor==='object'&&!Array.isArray(saved.homeDecor)){lifeState.homeDecor={};for(const [key,list] of Object.entries(saved.homeDecor)){if(typeof key==='string'&&Array.isArray(list))lifeState.homeDecor[key]=list.filter(x=>x&&typeof x.itemId==='string'&&Number.isFinite(x.x)&&Number.isFinite(x.z)&&Number.isInteger(x.floor)).slice(0,40);}}
@@ -2763,7 +2764,7 @@ function saveLifeProgress(show=true){
   try{
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,health:lifeState.health,
-      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,
+      money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,documents:lifeState.documents,education:lifeState.education,
       job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,homeDecor:lifeState.homeDecor,delivery:lifeState.delivery,creator:lifeState.creator,
       savedAt:new Date().toISOString()
     }));
@@ -2783,6 +2784,7 @@ function updateLifeSimulation(delta){
     lifeState.energy=Math.max(0,lifeState.energy-delta*(keys['shift']? .19:.105)*decay);
   }
   if(lifeState.hunger<15)lifeState.energy=Math.max(0,lifeState.energy-delta*.32);
+  if(lifeState.education&&lifeState.education.courseId){lifeState.education.remaining=Math.max(0,lifeState.education.remaining-delta*5.2);if(lifeState.education.remaining===0){const course=ABJ_COURSES.find(c=>c.id===lifeState.education.courseId);if(course){lifeState.education.certificates=lifeState.education.certificates||[];if(!lifeState.education.certificates.includes(course.id))lifeState.education.certificates.push(course.id);showMessage('🎓 Formation terminée : '+course.name+' · certificat obtenu.');}lifeState.education.courseId=null;saveLifeProgress(false);}}
   if(lifeState.hunger<5&&lifeState.energy<8)lifeState.health=Math.max(0,lifeState.health-delta*.025);
   lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
   if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
@@ -3002,6 +3004,27 @@ const ABJ_ADMIN_SERVICES=[
  {id:'residence',name:'Attestation de résidence',price:1500,description:'Justificatif administratif de domicile.',requires:['cni']},
  {id:'permit',name:'Permis de conduire',price:15000,description:'Autorisation de conduire dans la simulation.',requires:['cni']}
 ];
+
+
+const ABJ_COURSES=[
+ {id:'bureautique',name:'Bureautique et informatique',fee:3500,duration:180,certificate:'Attestation de bureautique'},
+ {id:'commerce',name:'Commerce et relation client',fee:2500,duration:120,certificate:'Attestation de commerce'},
+ {id:'conduite',name:'Conduite et sécurité routière',fee:6000,duration:240,certificate:'Attestation de conduite'}
+];
+function renderEducationApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const pos=currentInterior&&lastExteriorPosition?lastExteriorPosition:(player?player.position:{x:0,z:0});
+ const campuses=poi.filter(p=>p.type==='ecole'||p.type==='universite').map(p=>({...p,distance:Math.hypot(p.x-pos.x,p.z-pos.z)})).sort((a,b)=>a.distance-b.distance).slice(0,20);
+ const current=lifeState.education&&lifeState.education.courseId,active=ABJ_COURSES.find(c=>c.id===current),near=campuses.filter(c=>c.distance<=300),certs=lifeState.education.certificates||[];
+ const campusOptions=campuses.slice(0,12).map((c,i)=>'<option value="'+i+'">'+escapeHTML(c.nom)+' · '+Math.round(c.distance)+' m</option>').join('');
+ const courseCards=ABJ_COURSES.map(c=>{const done=certs.includes(c.id);return '<article style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><b>'+escapeHTML(c.name)+'</b><p style="font-size:11px;color:#c6d8e5">Durée : '+c.duration+' minutes de jeu · '+c.fee.toLocaleString('fr-FR')+' FCFA</p><button data-course="'+c.id+'" '+(active||done||!near.length||lifeState.money<c.fee?'disabled':'')+'>'+(done?'Certificat obtenu':active?'Formation en cours':!near.length?'Rends-toi dans un établissement':'S’inscrire')+'</button></article>';}).join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🎓 Écoles et formations ABJ</h3><p style="font-size:11px;color:#c6d8e5">Les établissements affichés proviennent des lieux scolaires cartographiés. Inscription disponible à proximité d’un campus (300 m).</p><h4>Établissements proches</h4>'+(campuses.length?'<select id="campusSelect" style="width:100%;padding:9px;background:#183447;color:white;border-radius:8px">'+campusOptions+'</select><p id="campusDistance" style="font-size:12px;color:#c6d8e5">'+escapeHTML(campuses[0].nom)+' · '+Math.round(campuses[0].distance)+' m</p><button id="campusTaxi">Y aller avec Yango</button>':'<p>Aucun établissement scolaire chargé.</p>')+(active?'<div style="padding:10px;background:#174b70;border-radius:10px"><b>Formation en cours : '+escapeHTML(active.name)+'</b><p>Temps restant : '+Math.ceil(lifeState.education.remaining)+' minutes de jeu</p></div>':'<h4>Formations disponibles</h4>'+courseCards)+'<h4>Mes certificats</h4>'+(certs.length?certs.map(id=>{const c=ABJ_COURSES.find(x=>x.id===id);return c?'<p>✓ '+escapeHTML(c.certificate)+'</p>':'';}).join(''):'<p>Aucun certificat obtenu.</p>')+'<p id="educationStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ const select=document.getElementById('campusSelect'),distEl=document.getElementById('campusDistance');
+ if(select){select.onchange=()=>{const c=campuses[Number(select.value)];distEl.textContent=escapeHTML(c.nom)+' · '+Math.round(c.distance)+' m';};}
+ const taxi=document.getElementById('campusTaxi');if(taxi)taxi.onclick=()=>{openPhoneApp('yango');const y=document.getElementById('yangoDestination'),c=campuses[Number(select&&select.value)||0];if(y&&c){const opt=Array.from(y.options).find(o=>o.textContent.startsWith(c.nom));if(opt){y.value=opt.value;y.dispatchEvent(new Event('change'));}}};
+ content.querySelectorAll('[data-course]').forEach(btn=>btn.onclick=()=>{const c=ABJ_COURSES.find(x=>x.id===btn.dataset.course);if(!c||active||certs.includes(c.id)||!near.length||lifeState.money<c.fee)return;lifeState.money-=c.fee;lifeState.education={courseId:c.id,remaining:c.duration,certificates:certs};const stamp=String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0');lifeState.bankTransactions.push({type:'debit',label:'Inscription formation : '+c.name,amount:c.fee,date:stamp});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderEducationApp();const st=document.getElementById('educationStatus');if(st)st.textContent='Inscription validée. La formation progresse avec le temps de jeu.';});
+}
 
 function renderHealthApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
@@ -3241,6 +3264,7 @@ function openPhoneApp(app){
   if(app==='yango'){apps.style.display='none';content.style.display='block';renderYangoApp();return;}
   if(app==='mairie'){apps.style.display='none';content.style.display='block';renderMairieApp();return;}
   if(app==='sante'){apps.style.display='none';content.style.display='block';renderHealthApp();return;}
+  if(app==='etudes'){apps.style.display='none';content.style.display='block';renderEducationApp();return;}
   if(app==='travail'){apps.style.display='none';content.style.display='block';renderEmploymentApp();return;}
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
@@ -3251,12 +3275,12 @@ function openPhoneApp(app){
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
-  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',sante:'Santé ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
+  const labels={contacts:'Contacts',messages:'Messages',banque:'Banque ABJ',transport:'Transport',yango:'Yango ABJ',mairie:'Mairie ABJ',sante:'Santé ABJ',etudes:'Études ABJ',travail:'Emploi',boutique:'Boutique',jumia:'Jumia Maison',agenda:'Agenda',parametres:'Réglages',gallery:'Galerie'};
   const body={
     contacts:'Tes rencontres avec les habitants sont conservées ici.',
     messages:'Écris aux habitants que tu as rencontrés.',
     banque:'Consulte ton portefeuille et effectue des transferts fictifs.',
-    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',mairie:'Demande et conserve tes documents administratifs dans ta partie.',sante:'Consulte les centres de santé et soigne ton personnage.',
+    transport:'Les arrêts de bus, gbaka et gares seront consultables ici.',yango:'Commande un taxi pour rejoindre un lieu de la ville.',mairie:'Demande et conserve tes documents administratifs dans ta partie.',sante:'Consulte les centres de santé et soigne ton personnage.',etudes:'Inscris-toi à une formation et obtiens des certificats.',
     travail:'Choisis un métier et effectue des services depuis ton téléphone.',
     boutique:'Achète des produits et retrouve-les dans ton sac.',jumia:'Achète des meubles et installe-les dans ton logement.',
     agenda:'Tes activités et rendez-vous apparaîtront ici.',
