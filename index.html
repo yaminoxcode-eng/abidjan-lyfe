@@ -181,7 +181,7 @@
     <button class="phoneApp" data-app="banque"><span>🏦</span>Banque</button>
     <button class="phoneApp" data-app="transport"><span>🚕</span>Transport</button>
     <button class="phoneApp" data-app="travail"><span>💼</span>Emploi</button>
-    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
+    <button class="phoneApp" data-app="boutique"><span>🛍️</span>Boutique</button><button class="phoneApp" data-app="glovo"><span>🛵</span>Glovo</button><button class="phoneApp" data-app="inventaire"><span>🎒</span>Mon sac</button>
     <button class="phoneApp" data-app="agenda"><span>📅</span>Agenda</button>
     <button class="phoneApp" data-app="parametres"><span>⚙️</span>Réglages</button>
   </div><div id="phoneAppContent"></div></div><div id="phoneHome"></div>
@@ -296,7 +296,7 @@ let messageTimer = 0;
 let lastLifeLightingHour = -1;
 
 // Simulation de vie : besoins, argent et horloge locale du monde.
-const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
+const lifeState = { hunger:100, energy:100, social:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, lastSave:0 };
 const LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
@@ -2750,7 +2750,7 @@ function loadLifeProgress(){
     if(typeof saved.job==='string')lifeState.job=saved.job;
     if(Array.isArray(saved.contacts))lifeState.contacts=saved.contacts.filter(c=>c&&typeof c.id==='string'&&typeof c.name==='string').slice(0,100);
     if(Array.isArray(saved.messages))lifeState.messages=saved.messages.filter(m=>m&&typeof m.contactId==='string'&&typeof m.text==='string').slice(-100);
-    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));
+    if(saved.inventory&&typeof saved.inventory==='object'&&!Array.isArray(saved.inventory))lifeState.inventory=Object.fromEntries(Object.entries(saved.inventory).filter(([k,v])=>typeof k==='string'&&Number.isInteger(v)&&v>0).slice(0,50));\n    if(saved.delivery&&typeof saved.delivery.itemId==='string'&&Number.isFinite(saved.delivery.remaining))lifeState.delivery={itemId:saved.delivery.itemId,remaining:Math.max(0,Math.min(180,saved.delivery.remaining)),restaurant:String(saved.delivery.restaurant||'Restaurant partenaire').slice(0,60)};
     if(saved.creator&&typeof saved.creator==='object')lifeState.creator={certified:!!saved.creator.certified,displayName:String(saved.creator.displayName||'').slice(0,32),youtubeFollowers:Math.max(0,Number(saved.creator.youtubeFollowers)||0),tiktokFollowers:Math.max(0,Number(saved.creator.tiktokFollowers)||0),posts:Array.isArray(saved.creator.posts)?saved.creator.posts.filter(p=>p&&typeof p.platform==='string'&&typeof p.caption==='string').slice(-40):[],lastPayoutDay:Number.isInteger(saved.creator.lastPayoutDay)?saved.creator.lastPayoutDay:-1};
     if(Array.isArray(saved.bankTransactions))lifeState.bankTransactions=saved.bankTransactions.filter(t=>t&&typeof t.label==='string'&&Number.isFinite(t.amount)).slice(0,30);
   }catch(e){console.warn('Sauvegarde Abidjan Life illisible',e);}
@@ -2760,7 +2760,7 @@ function saveLifeProgress(show=true){
     localStorage.setItem(LIFE_SAVE_KEY,JSON.stringify({
       hunger:lifeState.hunger,energy:lifeState.energy,social:lifeState.social,
       money:lifeState.money,hour:lifeState.hour,minute:lifeState.minute,
-      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,creator:lifeState.creator,
+      job:lifeState.job,workXP:lifeState.workXP,bankTransactions:lifeState.bankTransactions,contacts:lifeState.contacts,messages:lifeState.messages,inventory:lifeState.inventory,delivery:lifeState.delivery,creator:lifeState.creator,
       savedAt:new Date().toISOString()
     }));
     if(show)showMessage('💾 Vie quotidienne sauvegardée sur cet appareil.');
@@ -2779,7 +2779,7 @@ function updateLifeSimulation(delta){
     lifeState.energy=Math.max(0,lifeState.energy-delta*(keys['shift']? .19:.105)*decay);
   }
   if(lifeState.hunger<15)lifeState.energy=Math.max(0,lifeState.energy-delta*.32);
-  lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);
+  lifeState.jobCooldown=Math.max(0,lifeState.jobCooldown-delta);\n  if(lifeState.delivery){lifeState.delivery.remaining=Math.max(0,lifeState.delivery.remaining-delta);if(lifeState.delivery.remaining===0){const order=ABJ_GLOVO_MENU.find(x=>x.id===lifeState.delivery.itemId);if(order){lifeState.inventory=lifeState.inventory||{};lifeState.inventory[order.id]=(lifeState.inventory[order.id]||0)+1;showMessage('🛵 Livraison arrivée : '+order.name+' est dans ton sac.');}lifeState.delivery=null;saveLifeProgress(false);}}
   lifeState.minute+=delta*5.2;
   while(lifeState.minute>=60){lifeState.minute-=60;lifeState.hour=(lifeState.hour+1)%24;}
   const pct=(v)=>Math.round(Math.max(0,Math.min(100,v)))+'%';
@@ -2956,6 +2956,21 @@ function renderShopApp(){
  document.getElementById('openInventory').onclick=()=>renderInventoryApp();
  content.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.buy);if(!it)return;const status=document.getElementById('shopStatus');if(lifeState.money<it.price){status.textContent='Solde insuffisant pour cet achat.';return;}lifeState.money-=it.price;lifeState.inventory=lifeState.inventory||{};lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'debit',label:'Achat : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderShopApp();const msg=document.getElementById('shopStatus');if(msg)msg.textContent=it.name+' ajouté à ton sac.';});
 }
+const ABJ_GLOVO_MENU=[
+ {id:'glovo-attieke',name:'Garba poisson',price:1800,hunger:62,energy:8,restaurant:'Chez Tantine — Treichville'},
+ {id:'glovo-alloco',name:'Alloco + œuf',price:1200,hunger:42,energy:5,restaurant:'Maquis du Carrefour'},
+ {id:'glovo-poulet',name:'Poulet braisé + accompagnement',price:3500,hunger:78,energy:12,restaurant:'Le Braisé d’Abidjan'},
+ {id:'glovo-pizza',name:'Pizza à partager',price:4500,hunger:85,energy:8,restaurant:'Pizzeria du Plateau'},
+ {id:'glovo-jus',name:'Bissap frais',price:700,hunger:4,energy:18,restaurant:'Jus naturels ABJ'}
+];
+function renderGlovoApp(){
+ const content=document.getElementById('phoneAppContent');if(!content)return;
+ const active=lifeState.delivery;
+ const cards=ABJ_GLOVO_MENU.map(it=>'<article style="padding:11px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="white-space:nowrap;color:#ffe0a0">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.restaurant)+'</div><button data-glovo="'+it.id+'" '+(active?'disabled':'')+'>Commander</button></article>').join('');
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛵 Glovo ABJ</h3><p>Solde : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><p style="font-size:11px;color:#c6d8e5">Livraison simulée dans le monde du jeu. Le livreur arrive après un court délai, puis le repas est ajouté à ton sac.</p>'+(active?'<div style="padding:12px;border:1px solid #e6b85c;border-radius:10px"><b>Commande en préparation / livraison</b><p>'+escapeHTML((ABJ_GLOVO_MENU.find(x=>x.id===active.itemId)||{}).name||'Commande')+'</p><p>Restaurant : '+escapeHTML(active.restaurant)+'</p><b>Arrivée estimée : '+Math.ceil(active.remaining)+' s</b></div>':'<h4>Restaurants et menus</h4>'+cards)+'<p id="glovoStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+ content.querySelectorAll('[data-glovo]').forEach(btn=>btn.onclick=()=>{const it=ABJ_GLOVO_MENU.find(x=>x.id===btn.dataset.glovo);if(!it)return;if(lifeState.delivery){renderGlovoApp();return;}if(lifeState.money<it.price){const st=document.getElementById('glovoStatus');if(st)st.textContent='Solde insuffisant pour commander.';return;}lifeState.money-=it.price;lifeState.bankTransactions.push({type:'debit',label:'Glovo : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);lifeState.delivery={itemId:it.id,remaining:45,restaurant:it.restaurant};saveLifeProgress(false);renderGlovoApp();});
+}
 function renderCreatorApp(platform){
  const content=document.getElementById('phoneAppContent');if(!content)return;lifeState.creator=lifeState.creator||{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1};const c=lifeState.creator;const yt=platform==='youtube';const title=yt?'YouTube ABJ':'TikTok ABJ';const followers=yt?c.youtubeFollowers:c.tiktokFollowers;const posts=c.posts.filter(p=>p.platform===platform);const gallery=(()=>{try{return JSON.parse(localStorage.getItem('abj-game-gallery-v1')||'[]')}catch(e){return[]}})();
  const postCards=posts.slice().reverse().map(p=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff25;border-radius:10px"><b>'+escapeHTML(p.caption)+'</b><div style="font-size:11px;color:#c6d8e5">'+escapeHTML(p.kind)+' · '+p.views.toLocaleString('fr-FR')+' vues · '+escapeHTML(p.date)+'</div></div>').join('');
@@ -3035,7 +3050,7 @@ function openPhoneApp(app){
   if(app==='banque'){apps.style.display='none';content.style.display='block';renderBankApp();return;}
   if(app==='contacts'){apps.style.display='none';content.style.display='block';renderContactsApp();return;}
   if(app==='messages'){apps.style.display='none';content.style.display='block';renderMessagesApp();return;}
-  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}
+  if(app==='boutique'){apps.style.display='none';content.style.display='block';renderShopApp();return;}\n  if(app==='glovo'){apps.style.display='none';content.style.display='block';renderGlovoApp();return;}
   if(app==='inventaire'){apps.style.display='none';content.style.display='block';renderInventoryApp();return;}
   if(app==='google'){apps.style.display='none';content.style.display='block';renderGoogleApp();return;}
   if(app==='youtube'||app==='tiktok'){apps.style.display='none';content.style.display='block';renderCreatorApp(app);return;}
