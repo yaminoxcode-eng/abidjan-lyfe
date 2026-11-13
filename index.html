@@ -602,7 +602,7 @@ function generateCity() {
     buildPlayableUrbanCore();
     document.getElementById('mapStatus').textContent += ' · © OpenStreetMap contributors';
     if (!npcPopulationCreated) { createNPCs(mobilePerformanceMode?42:90); npcPopulationCreated = true; }
-    createAbidjanTraffic(mobilePerformanceMode?22:64);
+    createAbidjanTraffic(mobilePerformanceMode?36:100);
     buildUrbanTrafficSignals();
     worldReady = true;
     startPlayerAtHome();
@@ -847,6 +847,7 @@ async function loadAbidjanOSM() {
   buildTrafficGraph();
   buildOSMBuildings(buildingWays, nodes);
   buildResidentialInfill();
+  buildMunicipalOffices();
   buildOSMNodePlaces(data.elements.filter(e => e.type === 'node' && e.tags), nodes);
   buildOSMWaterAndParks(waterWays, nodes);
   buildPlateauLandmarks();
@@ -1147,6 +1148,21 @@ function buildOSMBuildings(ways,nodes) {
   console.info('Bâtiments OSM regroupés :',count);
 }
 
+
+
+function buildMunicipalOffices(){
+ if(!scene||!osmRoadSegments.length||typeof COMMUNE_ZONES==='undefined')return;let count=0;
+ COMMUNE_ZONES.forEach((zone,idx)=>{const cx=(zone.x1+zone.x2)/2,cz=(zone.z1+zone.z2)/2;let anchor=null,best=Infinity;for(const p of pedestrianNodes){const d=Math.hypot(p.x-cx,p.z-cz);if(d<best&&!isInsideAnyObstacle(p.x,p.z,2)){best=d;anchor=p;}}if(!anchor||best>1800)return;
+ let px=anchor.x,pz=anchor.z;const near=nearestTrafficNode(px,pz,160);if(near){const [nx,nz]=near.split(':').map(Number),dx=px-nx,dz=pz-nz,l=Math.hypot(dx,dz)||1;px=nx+dx/l*15;pz=nz+dz/l*15;}
+ if(overlapsExisting(px,pz,22,18,9))return;
+ const g=new THREE.Group(),wall=new THREE.Mesh(new THREE.BoxGeometry(18,7.2,14),new THREE.MeshLambertMaterial({color:idx%2?0xd7d0bf:0xe4d8c1}));wall.position.y=3.6;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);
+ const roof=new THREE.Mesh(new THREE.BoxGeometry(18.6,.55,14.6),new THREE.MeshLambertMaterial({color:0x6a7777}));roof.position.y=7.3;g.add(roof);
+ const portico=new THREE.Mesh(new THREE.BoxGeometry(6,3.5,2.3),new THREE.MeshLambertMaterial({color:0xbda77e}));portico.position.set(0,1.75,7.3);g.add(portico);
+ for(const x of [-6,6]){const win=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.6,.1),new THREE.MeshLambertMaterial({color:0x477483}));win.position.set(x,4,7.08);g.add(win);}
+ g.position.set(px,terrainHeight(px,pz),pz);scene.add(g);addObstacle(px,pz,18,14,8);allBuildings.push({x:px,z:pz,w:18,d:14,h:8,type:'mairie',name:'Mairie de '+zone.name});
+ const id='mairie-'+idx,doorZ=pz+7.15;interiors[id]=generateInterior(id,18,14,2,0xd7d0bf,'plateau');doors.push({x:px,z:doorZ,id,rot:0,normal:new THREE.Vector3(0,0,1),home:false,isMunicipality:true,commune:zone.name,buildingType:'mairie'});addPOI(px,pz,'mairie','Mairie de '+zone.name,{commune:zone.name});count++;
+ });console.info('Mairies communales créées :',count);
+}
 
 function buildResidentialInfill(){
  if(!scene||!doors.length)return;let made=0;const homeDoors=doors.filter(d=>String(d.id).startsWith('home'));const palette=[0xc9b99c,0xd6c4a5,0xb7aa91,0xd4b08a,0xc8c2b4];
@@ -3084,7 +3100,7 @@ function renderYangoApp(){
  const select=document.getElementById('yangoDestination'),quote=document.getElementById('yangoQuote'),request=document.getElementById('yangoRequest');
  const update=()=>{const d=candidates[Number(select.value)];if(!d){quote.textContent='Choisis un lieu.';return;}const dist=Math.hypot(d.x-px,d.z-pz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);quote.innerHTML='<b>'+Math.round(dist)+' m à vol d’oiseau</b><br>Prix estimé : <b>'+fare.toLocaleString('fr-FR')+' FCFA</b><br>Prise en charge : ta position actuelle';};
  select.addEventListener('change',update);if(candidates.length)update();
- request.onclick=()=>{const d=candidates[Number(select.value)];if(!d)return;if(currentApartment)leaveApartment();if(currentInterior)exitBuilding();const sx=player.position.x,sz=player.position.z;const dist=Math.hypot(d.x-sx,d.z-sz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);if(lifeState.money<fare){document.getElementById('yangoStatus').textContent='Solde insuffisant pour cette course.';return;}const path=buildYangoRoadPath(sx,sz,d.x,d.z);const points=path||[{x:sx,z:sz},{x:d.x,z:d.z}];activeYangoRide={destination:d,fare,phase:'approach',progress:0,points,index:0,segmentProgress:0,startMoney:lifeState.money,taxi:makeYangoTaxi(),routeMapped:!!path,playerScale:player.scale.clone(),boarded:false,approachProgress:0};const start=points[0],gap=Math.max(1,Math.hypot(start.x-sx,start.z-sz)),curb={x:sx+(start.x-sx)*Math.min(1,5/gap),z:sz+(start.z-sz)*Math.min(1,5/gap)};activeYangoRide.approachTarget=curb;points[0]=curb;activeYangoRide.taxi.position.set(start.x,terrainHeight(start.x,start.z)+.02,start.z);scene.add(activeYangoRide.taxi);showMessage('🚖 Le chauffeur arrive par la route…');renderYangoApp();};
+ request.onclick=()=>{const d=candidates[Number(select.value)];if(!d)return;if(currentApartment)leaveApartment();if(currentInterior)exitBuilding();const sx=player.position.x,sz=player.position.z;const dist=Math.hypot(d.x-sx,d.z-sz),fare=Math.max(700,Math.round((dist/1000*650+500)/100)*100);if(lifeState.money<fare){document.getElementById('yangoStatus').textContent='Solde insuffisant pour cette course.';return;}const path=buildYangoRoadPath(sx,sz,d.x,d.z);const points=path||[{x:sx,z:sz},{x:d.x,z:d.z}];activeYangoRide={destination:d,fare,phase:'approach',progress:0,points,index:0,segmentProgress:0,startMoney:lifeState.money,taxi:makeYangoTaxi(),routeMapped:!!path,playerScale:player.scale.clone(),boarded:false,approachProgress:0};const start=points[0],gap=Math.max(1,Math.hypot(start.x-sx,start.z-sz)),curb={x:sx+(start.x-sx)*Math.min(1,5/gap),z:sz+(start.z-sz)*Math.min(1,5/gap)};activeYangoRide.approachTarget=curb;points[0]=curb;activeYangoRide.taxi.position.set(start.x,terrainHeight(start.x,start.z)+.14,start.z);scene.add(activeYangoRide.taxi);showMessage('🚖 Le chauffeur arrive par la route…');renderYangoApp();};
 }
 function cancelYangoRide(){
  if(!activeYangoRide)return;const r=activeYangoRide;
@@ -3103,11 +3119,11 @@ function boardYangoTaxi(){
 
 function updateYangoRide(delta){
  const r=activeYangoRide;if(!r||!player)return;
- if(r.phase==='approach'){const target=r.approachTarget,dx=target.x-r.taxi.position.x,dz=target.z-r.taxi.position.z,dist=Math.hypot(dx,dz);if(dist>0.25){const step=Math.min(dist,delta*9);r.taxi.position.x+=dx/dist*step;r.taxi.position.z+=dz/dist*step;r.taxi.rotation.y=Math.atan2(dx,dz);}r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z)+.02;if(dist<=.5){r.phase='pickup';showMessage('🚖 Le Yango est devant toi. Appuie sur F pour monter.');renderYangoApp();}}
- if(r.phase==='pickup'){r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z)+.02;}
+ if(r.phase==='approach'){const target=r.approachTarget,dx=target.x-r.taxi.position.x,dz=target.z-r.taxi.position.z,dist=Math.hypot(dx,dz);if(dist>0.25){const step=Math.min(dist,delta*9);r.taxi.position.x+=dx/dist*step;r.taxi.position.z+=dz/dist*step;r.taxi.rotation.y=Math.atan2(dx,dz);}r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z)+.14;if(dist<=.5){r.phase='pickup';showMessage('🚖 Le Yango est devant toi. Appuie sur F pour monter.');renderYangoApp();}}
+ if(r.phase==='pickup'){r.taxi.position.y=terrainHeight(r.taxi.position.x,r.taxi.position.z)+.14;}
  if(r.phase==='riding'){
   let budget=delta*11.5;
-  while(budget>0&&r.index<r.points.length-1){const a=r.points[r.index],b=r.points[r.index+1],len=Math.hypot(b.x-a.x,b.z-a.z)||.001,remain=len-r.segmentProgress,step=Math.min(remain,budget);r.segmentProgress+=step;budget-=step;const t=r.segmentProgress/len;r.taxi.position.set(a.x+(b.x-a.x)*t,terrainHeight(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t),a.z+(b.z-a.z)*t);r.taxi.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);r.progress=(r.index+t)/(r.points.length-1);if(r.segmentProgress>=len-.001){r.index++;r.segmentProgress=0;}}
+  while(budget>0&&r.index<r.points.length-1){const a=r.points[r.index],b=r.points[r.index+1],len=Math.hypot(b.x-a.x,b.z-a.z)||.001,remain=len-r.segmentProgress,step=Math.min(remain,budget);r.segmentProgress+=step;budget-=step;const t=r.segmentProgress/len;r.taxi.position.set(a.x+(b.x-a.x)*t,terrainHeight(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t)+.14,a.z+(b.z-a.z)*t);r.taxi.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);r.progress=(r.index+t)/(r.points.length-1);if(r.segmentProgress>=len-.001){r.index++;r.segmentProgress=0;}}
   r.lastPosition={x:r.taxi.position.x,z:r.taxi.position.z};
   if(r.index>=r.points.length-1){const dest=r.destination;const taxiPos=r.taxi.position.clone();r.taxi.remove(player);scene.add(player);player.scale.copy(r.playerScale||new THREE.Vector3(1,1,1));player.visible=true;player.position.set(dest.x,terrainHeight(dest.x,dest.z)+.03,dest.z);player.rotation.y=r.taxi.rotation.y;lifeState.money=Math.max(0,lifeState.money-r.fare);lifeState.bankTransactions.push({type:'debit',label:'Yango : '+dest.nom,amount:r.fare,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);if(r.taxi)scene.remove(r.taxi);activeYangoRide=null;saveLifeProgress(false);showMessage('🚖 Arrivée à '+dest.nom+' · '+r.fare.toLocaleString('fr-FR')+' FCFA débités.');renderYangoApp();}
  }
