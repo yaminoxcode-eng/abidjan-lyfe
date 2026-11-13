@@ -160,7 +160,7 @@
   </div>
 </div>
 
-<div id="accountOverlay" role="dialog" aria-modal="true"><div id="accountCard"><small style="color:#f4d28b;letter-spacing:2px;font-weight:800">ABIDJAN LIFE · COMPTE</small><h2 id="accountTitle">Connexion</h2><p id="accountIntro">Entre ton numéro de téléphone et ton mot de passe pour retrouver ta sauvegarde.</p><label for="accountPhone">Numéro de téléphone</label><input id="accountPhone" type="tel" inputmode="tel" placeholder="+225 07 00 00 00 00" autocomplete="tel"><label for="accountPassword">Mot de passe</label><input id="accountPassword" type="password" placeholder="Ton mot de passe" autocomplete="current-password"><div id="accountCodeWrap" style="display:none"><label for="accountCode">Code de vérification</label><input id="accountCode" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><div id="accountDemoCode"></div></div><div id="accountNewPasswordWrap" style="display:none"><label for="accountNewPassword">Nouveau mot de passe</label><input id="accountNewPassword" type="password" placeholder="Créer un nouveau mot de passe" autocomplete="new-password"></div><div id="accountStatus"></div><button class="primary" id="accountContinue">Continuer</button><button id="accountForgot">Mot de passe oublié</button><button id="accountBack" style="display:none">Retour</button><p style="font-size:10px;color:#a9bbc5">Prototype local : le code de vérification est affiché ici pour les tests. Aucun SMS réel n’est envoyé sans service serveur connecté.</p></div></div>
+<div id="accountOverlay" role="dialog" aria-modal="true"><div id="accountCard"><small style="color:#f4d28b;letter-spacing:2px;font-weight:800">ABIDJAN LIFE · COMPTE</small><h2 id="accountTitle">Connexion</h2><p id="accountIntro">Entre ton numéro de téléphone et ton mot de passe pour retrouver ta sauvegarde.</p><label for="accountPhone">Numéro de téléphone</label><input id="accountPhone" type="tel" inputmode="tel" placeholder="+225 07 00 00 00 00" autocomplete="tel"><label for="accountPassword">Mot de passe</label><input id="accountPassword" type="password" placeholder="Ton mot de passe" autocomplete="current-password"><div id="accountCodeWrap" style="display:none"><label for="accountCode">Code de vérification</label><input id="accountCode" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><div id="accountDemoCode"></div></div><div id="accountNewPasswordWrap" style="display:none"><label for="accountNewPassword">Nouveau mot de passe</label><div style="display:flex;gap:6px"><input id="accountNewPassword" type="password" placeholder="Créer un nouveau mot de passe" autocomplete="new-password" style="flex:1"><button type="button" id="toggleNewPassword" aria-label="Afficher le mot de passe">👁</button></div></div><div id="accountStatus"></div><button class="primary" id="accountContinue">Continuer</button><button id="accountForgot">Mot de passe oublié</button><button id="accountBack" style="display:none">Retour</button><p style="font-size:10px;color:#a9bbc5">Prototype local : le code de vérification est affiché ici pour les tests. Aucun SMS réel n’est envoyé sans service serveur connecté.</p></div></div>
 <div id="creatorOverlay" role="dialog" aria-modal="true" aria-labelledby="creatorTitle">
   <div id="creatorCard">
     <div class="creatorHead"><div><small>ABIDJAN LIFE · IDENTITÉ</small><h2 id="creatorTitle">Créer ton personnage</h2><p>Personnalise ton avatar avant d'entrer dans Abidjan.</p></div><div id="creatorPreview">🧍🏾‍♂️</div></div>
@@ -331,6 +331,7 @@ async function accountContinue(){const phone=document.getElementById('accountPho
 function activateGameAccount(phone){activeGameAccount=phone;LIFE_SAVE_KEY='abidjan-life-life-v1:'+phone;document.getElementById('accountOverlay').classList.remove('open');openCharacterCreator();}
 function forgotGamePassword(){const phone=document.getElementById('accountPhone').value.replace(/[^+0-9]/g,'');if(!readGameAccounts()[phone]){document.getElementById('accountStatus').textContent='Aucun compte trouvé avec ce numéro.';return;}issueLocalAccountCode(phone,'forgot');document.getElementById('accountTitle').textContent='Réinitialiser le mot de passe';document.getElementById('accountIntro').textContent='Vérifie ton numéro avec le code puis choisis un nouveau mot de passe.';}
 function backAccountLogin(){accountFlow='login';document.getElementById('accountCodeWrap').style.display='none';document.getElementById('accountNewPasswordWrap').style.display='none';document.getElementById('accountDemoCode').style.display='none';document.getElementById('accountContinue').textContent='Continuer';document.getElementById('accountForgot').style.display='inline-block';document.getElementById('accountBack').style.display='none';document.getElementById('accountTitle').textContent='Connexion / inscription';document.getElementById('accountStatus').textContent='';}
+document.getElementById('toggleNewPassword').addEventListener('click',()=>{const f=document.getElementById('accountNewPassword'),b=document.getElementById('toggleNewPassword');f.type=f.type==='password'?'text':'password';b.textContent=f.type==='text'?'🙈':'👁';b.setAttribute('aria-label',f.type==='text'?'Masquer le mot de passe':'Afficher le mot de passe');});
 document.getElementById('accountContinue').addEventListener('click',accountContinue);document.getElementById('accountForgot').addEventListener('click',forgotGamePassword);document.getElementById('accountBack').addEventListener('click',backAccountLogin);
 
 function openCharacterCreator(){
@@ -845,6 +846,7 @@ async function loadAbidjanOSM() {
   buildOSMRoads(roadWays, nodes);
   buildTrafficGraph();
   buildOSMBuildings(buildingWays, nodes);
+  buildResidentialInfill();
   buildOSMNodePlaces(data.elements.filter(e => e.type === 'node' && e.tags), nodes);
   buildOSMWaterAndParks(waterWays, nodes);
   buildPlateauLandmarks();
@@ -929,7 +931,7 @@ function buildOSMRoads(ways, nodes) {
     const pts=simplifyRoadPoints(raw,tolerance);
     for(let i=1;i<pts.length;i++){
       const a=pts[i-1],b=pts[i],len=Math.hypot(b.x-a.x,b.z-a.z);if(len<.5)continue;
-      addQuad(a,b,width,.012);
+      addQuad(a,b,width,.13);
       osmRoadSegments.push({a,b,width,type:tag,name:w.tags.name||''});
       if(['primary','secondary','tertiary','residential','living_street'].includes(tag)&&(i%3===0||i===pts.length-1)){
         const dx=b.x-a.x,dz=b.z-a.z,l=Math.hypot(dx,dz)||1,nx=-dz/l*(width/2+2.8),nz=dx/l*(width/2+2.8);
@@ -963,12 +965,12 @@ function decorateOSMStreets(){
       const a={x:r.a.x+nx*off*side,z:r.a.z+nz*off*side},b={x:r.b.x+nx*off*side,z:r.b.z+nz*off*side};
       const c={x:r.b.x+nx*(off+sidewalkWidth*.5)*side,z:r.b.z+nz*(off+sidewalkWidth*.5)*side};
       const d={x:r.a.x+nx*(off+sidewalkWidth*.5)*side,z:r.a.z+nz*(off+sidewalkWidth*.5)*side};
-      quad(sidewalkV,sidewalkI,a,b,c,d,.035);
+      quad(sidewalkV,sidewalkI,a,b,c,d,.16);
     }
     // Ligne centrale discontinue sur les grands axes uniquement.
     if(['motorway','trunk','primary','secondary'].includes(r.type)&&r.width>=8){
       const dashCount=Math.min(8,Math.floor(len/18));
-      for(let j=0;j<dashCount;j++){const t=(j+.5)/dashCount,half=Math.min(3.2,len/(dashCount*3));const cx=r.a.x+dx*t,cz=r.a.z+dz*t;const a={x:cx+nx*.09,z:cz+nz*.09},b={x:cx-nx*.09,z:cz-nz*.09},c={x:cx-nx*.09+dx/len*half,z:cz-nz*.09+dz/len*half},d={x:cx+nx*.09+dx/len*half,z:cz+nz*.09+dz/len*half};quad(lineV,lineI,a,b,c,d,.055);}
+      for(let j=0;j<dashCount;j++){const t=(j+.5)/dashCount,half=Math.min(3.2,len/(dashCount*3));const cx=r.a.x+dx*t,cz=r.a.z+dz*t;const a={x:cx+nx*.09,z:cz+nz*.09},b={x:cx-nx*.09,z:cz-nz*.09},c={x:cx-nx*.09+dx/len*half,z:cz-nz*.09+dz/len*half},d={x:cx+nx*.09+dx/len*half,z:cz+nz*.09+dz/len*half};quad(lineV,lineI,a,b,c,d,.205);}
     }
     // Lampadaires à intervalles raisonnables le long des avenues et rues habitées.
     if(lampCount<(mobilePerformanceMode?80:230)&&['primary','secondary','tertiary','residential'].includes(r.type)){
@@ -1143,6 +1145,13 @@ function buildOSMBuildings(ways,nodes) {
     facadeMesh.frustumCulled=false;facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;facadeMesh.visible=true;scene.add(facadeMesh);
   }
   console.info('Bâtiments OSM regroupés :',count);
+}
+
+
+function buildResidentialInfill(){
+ if(!scene||!doors.length)return;let made=0;const homeDoors=doors.filter(d=>String(d.id).startsWith('home'));const palette=[0xc9b99c,0xd6c4a5,0xb7aa91,0xd4b08a,0xc8c2b4];
+ function roadNear(x,z){let best=Infinity;for(const r of osmRoadSegments){if(!['primary','secondary','tertiary','residential','living_street','service'].includes(r.type))continue;const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((x-r.a.x)*dx+(z-r.a.z)*dz)/l2)),d=Math.hypot(x-(r.a.x+t*dx),z-(r.a.z+t*dz));if(d<best)best=d;}return best;}
+ homeDoors.forEach((door,index)=>{if(made>=95)return;const n=door.normal||new THREE.Vector3(0,0,1),side=new THREE.Vector3(-n.z,0,n.x),offsets=[{x:side.x*10-n.x*8,z:side.z*10-n.z*8},{x:-side.x*10-n.x*9,z:-side.z*10-n.z*9}];offsets.forEach((off,j)=>{if(made>=95)return;const x=door.x+off.x,z=door.z+off.z,w=6.5+(index%3)*1.4,d=6.2+(index%2)*1.5,h=4.4+(index%4)*.8;if(roadNear(x,z)<w/2+3||overlapsExisting(x,z,w+1,d+1,h)||isOnRoad(x,z,4))return;const g=new THREE.Group(),wall=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:palette[(index+j)%palette.length]}));wall.position.y=h/2;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);const roof=new THREE.Mesh(new THREE.BoxGeometry(w+.35,.35,d+.35),new THREE.MeshLambertMaterial({color:index%2?0x754b37:0x6c6260}));roof.position.y=h+.15;roof.castShadow=true;g.add(roof);const wm=new THREE.MeshLambertMaterial({color:0x416b79,emissive:0x101c20});for(const sx of [-1,1]){const win=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.05,.08),wm);win.position.set(sx*w*.27,h*.64,d/2+.045);g.add(win);}g.position.set(x,terrainHeight(x,z),z);scene.add(g);addObstacle(x,z,w,d,h+.4);allBuildings.push({x,z,w,d,h:h+.4,type:'residential-infill'});made++;});});console.info('Bâtiments résidentiels de remplissage :',made);
 }
 
 function createOSMStoreEntrance(pts,tags,height,color){
@@ -3051,7 +3060,7 @@ function buildYangoRoadPath(sx,sz,tx,tz){
  }
  if(!found)return null;
  const keys=[goal];while(keys[0]!==start){const p=prev.get(keys[0]);if(!p)return null;keys.unshift(p);}
- const points=[{x:sx,z:sz},...keys.map(parse),{x:tx,z:tz}],clean=[];
+ const points=[{x:sx,z:sz},...keys.map(parse)],goalRoad=parse(goal);if(Math.hypot(goalRoad.x-tx,goalRoad.z-tz)<24)points.push({x:tx,z:tz});const clean=[];
  points.forEach(p=>{if(!clean.length||Math.hypot(p.x-clean[clean.length-1].x,p.z-clean[clean.length-1].z)>1)clean.push(p);});
  return clean;
 }
