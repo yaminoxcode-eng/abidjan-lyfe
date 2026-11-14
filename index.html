@@ -405,10 +405,10 @@ try{
 
 function normalizeIvorianMobile(value){
   let raw=String(value||'').trim();
-  if(!raw||!/^[+0-9\\s().-]+$/.test(raw))return null;
-  let digits=raw.replace(/\\D/g,'');
+  if(!raw||!/^[+0-9\s().-]+$/.test(raw))return null;
+  let digits=raw.replace(/\D/g,'');
   if(digits.startsWith('225')&&digits.length===13)digits=digits.slice(3);
-  if(digits.length!==10||!/^0[157]\\d{8}$/.test(digits))return null;
+  if(digits.length!==10||!/^0[157]\d{8}$/.test(digits))return null;
   return '+225'+digits;
 }
 
@@ -474,7 +474,7 @@ function messageErreurFirebaseSMS(error){
 async function verifierLeCode(){
   const status=document.getElementById('accountStatus');
   const code=document.getElementById('accountCode').value.trim();
-  if(!/^\\d{6}$/.test(code)){status.textContent='Le code doit contenir exactement 6 chiffres.';return;}
+  if(!/^\d{6}$/.test(code)){status.textContent='Le code doit contenir exactement 6 chiffres.';return;}
   if(!confirmationResult){status.textContent='Aucune demande de vérification active. Demande un nouveau code.';return;}
   const button=document.getElementById('btn-verifier');
   button.disabled=true;status.textContent='Vérification du code…';
