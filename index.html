@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Abidjan Life — V1.9 Optimisation distance 3D</title>
+<title>Abidjan Life — V1.10 Secteurs urbains et LOD</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -596,11 +596,11 @@ function onCameraWheel(e){
 // UTILITAIRES COLLISION / ROUTE
 // ============================================================
 function obstacleCellKey(x, z) { return Math.floor(x / OBSTACLE_CELL) + ':' + Math.floor(z / OBSTACLE_CELL); }
-function registerDistanceManagedBuilding(group){
+function registerDistanceManagedBuilding(group,detailMesh){
   if(!group)return;
   group.userData.distanceManaged=true;
   group.userData.distanceHidden=false;
-  distanceManagedBuildings.push(group);
+  distanceManagedBuildings.push({group,detailMesh:detailMesh||null});
 }
 function updateDistanceManagedBuildings(delta){
   if(!player||!distanceManagedBuildings.length)return;
@@ -609,14 +609,24 @@ function updateDistanceManagedBuildings(delta){
   distanceCullAccumulator=0;
   const limit=mobilePerformanceMode?1450:2300;
   const restore=limit+(mobilePerformanceMode?180:260);
+  const detailLimit=mobilePerformanceMode?430:720;
+  const detailRestore=detailLimit+100;
   const limitSq=limit*limit,restoreSq=restore*restore;
+  const detailSq=detailLimit*detailLimit,detailRestoreSq=detailRestore*detailRestore;
   const px=player.position.x,pz=player.position.z;
   for(let i=0;i<distanceManagedBuildings.length;i++){
-    const group=distanceManagedBuildings[i];
+    const entry=distanceManagedBuildings[i];
+    const group=entry&&entry.group;
     if(!group)continue;
-    const dx=group.position.x-px,dz=group.position.z-pz,distSq=dx*dx+dz*dz;
+    const cx=Number.isFinite(group.userData.cullX)?group.userData.cullX:group.position.x;
+    const cz=Number.isFinite(group.userData.cullZ)?group.userData.cullZ:group.position.z;
+    const dx=cx-px,dz=cz-pz,distSq=dx*dx+dz*dz;
     if(!group.userData.distanceHidden&&distSq>limitSq){group.visible=false;group.userData.distanceHidden=true;}
     else if(group.userData.distanceHidden&&distSq<restoreSq){group.visible=true;group.userData.distanceHidden=false;}
+    if(entry.detailMesh){
+      if(entry.detailMesh.visible&&distSq>detailSq)entry.detailMesh.visible=false;
+      else if(!entry.detailMesh.visible&&distSq<detailRestoreSq)entry.detailMesh.visible=true;
+    }
   }
 }
 
@@ -1207,22 +1217,35 @@ function isSignatureLandmarkTag(tag){
 
 function buildOSMBuildings(ways,nodes) {
   const palette=[0xd5c8ad,0xc5b79c,0xe0d6c2,0xb8b0a1,0xd2b18c,0xaaa99f,0xe5d8c3];
-  const positions=[], normals=[], colors=[], indices=[];
-  const facadePositions=[], facadeColors=[], facadeIndices=[];
-  let count=0, facadeWindowCount=0;
+  const SECTOR_SIZE=650;
+  const sectors=new Map();
+  let count=0,facadeWindowCount=0;
   const MAX_FACADE_WINDOWS=mobilePerformanceMode?9000:24000;
+  function sectorFor(x,z){
+    const sx=Math.floor(x/SECTOR_SIZE),sz=Math.floor(z/SECTOR_SIZE),key=sx+':'+sz;
+    let sector=sectors.get(key);
+    if(!sector){
+      sector={sx,sz,positions:[],normals:[],colors:[],indices:[],facadePositions:[],facadeColors:[],facadeIndices:[],buildings:0};
+      sectors.set(key,sector);
+    }
+    return sector;
+  }
   ways.forEach(w=>{
     if(count>=(mobilePerformanceMode?1700:2600) || w.nodes.length<4)return;
-    const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean); if(pts.length<4)return;
+    const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean);
+    if(pts.length<4)return;
     const area=Math.abs(pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p.x*q.z-q.x*p.z;},0))/2;
     if(area<18||area>12000)return;
-    const shape=new THREE.Shape(); shape.moveTo(pts[0].x,pts[0].z); for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z); shape.closePath();
     const tag=w.tags||{};
-    if(isSignatureLandmarkTag(tag))return; // Modèles dédiés reconstruits plus précisément à leur vraie position.
-    if(['school','university','college'].includes(tag.building)||['school','university','college'].includes(tag.amenity))addPOI(pts.reduce((v,p)=>v+p.x,0)/pts.length,pts.reduce((v,p)=>v+p.z,0)/pts.length,tag.amenity==='university'||tag.building==='university'?'universite':'ecole',tag.name||tag['name:fr']||'Établissement scolaire',tag);
-    const levels=Math.max(1,Math.min(18,parseInt(tag['building:levels']||'')|| (tag.building==='apartments'?4:tag.building==='commercial'?3:2)));
+    if(isSignatureLandmarkTag(tag))return;
+    if(['school','university','college'].includes(tag.building)||['school','university','college'].includes(tag.amenity))
+      addPOI(pts.reduce((v,p)=>v+p.x,0)/pts.length,pts.reduce((v,p)=>v+p.z,0)/pts.length,tag.amenity==='university'||tag.building==='university'?'universite':'ecole',tag.name||tag['name:fr']||'Établissement scolaire',tag);
+    const xs=pts.map(p=>p.x),zs=pts.map(p=>p.z);
+    const cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
+    const ww=Math.max(1,Math.max(...xs)-Math.min(...xs)),dd=Math.max(1,Math.max(...zs)-Math.min(...zs));
+    const sector=sectorFor(cx,cz);
+    const levels=Math.max(1,Math.min(18,parseInt(tag['building:levels']||'')||(tag.building==='apartments'?4:tag.building==='commercial'?3:2)));
     const h=Math.max(3.2,Math.min(58,levels*3.05));
-    // Détails de façade légers : vitrages et portes regroupés dans une seule géométrie.
     const signedArea=pts.reduce((v,p,i)=>{const q=pts[(i+1)%pts.length];return v+p.x*q.z-q.x*p.z;},0);
     for(let e=0;e<pts.length;e++){
       const a=pts[e],b=pts[(e+1)%pts.length],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
@@ -1234,42 +1257,43 @@ function buildOSMBuildings(ways,nodes) {
           facadeWindowCount++;
           const t=(wi+1)/(countWindows+1),wx=a.x+dx*t+outward.x*.045,wz=a.z+dz*t+outward.z*.045;
           const half=.58,low=.82+floor*3.05,high=low+1.22;
-          const bx=-dz/len*half,bz=dx/len*half,k=facadePositions.length/3;
-          facadePositions.push(wx-bx,low,wz-bz,wx+bx,low,wz+bz,wx+bx,high,wz+bz,wx-bx,high,wz-bz);
-          const shade=.10+Math.random()*.10;for(let v=0;v<4;v++)facadeColors.push(.10+shade,.19+shade,.24+shade);
-          facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
+          const bx=-dz/len*half,bz=dx/len*half,k=sector.facadePositions.length/3;
+          sector.facadePositions.push(wx-bx,low,wz-bz,wx+bx,low,wz+bz,wx+bx,high,wz+bz,wx-bx,high,wz-bz);
+          const shade=.10+Math.random()*.10;
+          for(let v=0;v<4;v++)sector.facadeColors.push(.10+shade,.19+shade,.24+shade);
+          sector.facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
         }
       }
-      // Entrée à l'échelle humaine, élargie pour les grands immeubles et commerces.
-      if(e===0 && len>5){
-        const t=.5,wx=a.x+dx*t+outward.x*.075,wz=a.z+dz*t+outward.z*.075;
+      if(e===0&&len>5){
+        const wx=a.x+dx*.5+outward.x*.075,wz=a.z+dz*.5+outward.z*.075;
         const doorWidth=Math.max(1.55,Math.min(3.15,len*.105)),doorHeight=Math.max(2.35,Math.min(3.25,h*.085));
-        const bx=-dz/len*doorWidth/2,bz=dx/len*doorWidth/2,k=facadePositions.length/3;
-        facadePositions.push(wx-bx,.05,wz-bz,wx+bx,.05,wz+bz,wx+bx,doorHeight,wz+bz,wx-bx,doorHeight,wz-bz);
-        for(let v=0;v<4;v++)facadeColors.push(.055,.075,.082);
-        facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
-        // Imposte vitrée au-dessus de la porte : entrée lisible même sur une grande façade.
-        const tx=wx+outward.x*.018,tz=wz+outward.z*.018,half=doorWidth*.42,bx2=-dz/len*half,bz2=dx/len*half,k2=facadePositions.length/3;
-        facadePositions.push(tx-bx2,doorHeight+.12,tz-bz2,tx+bx2,doorHeight+.12,tz+bz2,tx+bx2,doorHeight+.42,tz+bz2,tx-bx2,doorHeight+.42,tz-bz2);
-        for(let v=0;v<4;v++)facadeColors.push(.22,.39,.43);
-        facadeIndices.push(k2,k2+1,k2+2,k2,k2+2,k2+3);
+        const bx=-dz/len*doorWidth/2,bz=dx/len*doorWidth/2,k=sector.facadePositions.length/3;
+        sector.facadePositions.push(wx-bx,.05,wz-bz,wx+bx,.05,wz+bz,wx+bx,doorHeight,wz+bz,wx-bx,doorHeight,wz-bz);
+        for(let v=0;v<4;v++)sector.facadeColors.push(.055,.075,.082);
+        sector.facadeIndices.push(k,k+1,k+2,k,k+2,k+3);
+        const tx=wx+outward.x*.018,tz=wz+outward.z*.018,half=doorWidth*.42,bx2=-dz/len*half,bz2=dx/len*half,k2=sector.facadePositions.length/3;
+        sector.facadePositions.push(tx-bx2,doorHeight+.12,tz-bz2,tx+bx2,doorHeight+.12,tz+bz2,tx+bx2,doorHeight+.42,tz+bz2,tx-bx2,doorHeight+.42,tz-bz2);
+        for(let v=0;v<4;v++)sector.facadeColors.push(.22,.39,.43);
+        sector.facadeIndices.push(k2,k2+1,k2+2,k2,k2+2,k2+3);
       }
     }
+    const shape=new THREE.Shape();
+    shape.moveTo(pts[0].x,pts[0].z);
+    for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z);
+    shape.closePath();
     const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false});
-    geo.rotateX(-Math.PI/2); geo.translate(0,0.04,0); geo.computeVertexNormals();
-    const pa=geo.getAttribute('position'), na=geo.getAttribute('normal'), base=positions.length/3;
+    geo.rotateX(-Math.PI/2);geo.translate(0,.04,0);geo.computeVertexNormals();
+    const pa=geo.getAttribute('position'),na=geo.getAttribute('normal'),base=sector.positions.length/3;
     const col=new THREE.Color(palette[Math.floor(Math.random()*palette.length)]);
     for(let i=0;i<pa.count;i++){
       const vx=pa.getX(i),vy=pa.getY(i),vz=pa.getZ(i);
-      positions.push(vx,vy+terrainHeight(vx,vz),vz);
-      normals.push(na.getX(i),na.getY(i),na.getZ(i));
-      colors.push(col.r,col.g,col.b);
+      sector.positions.push(vx,vy+terrainHeight(vx,vz),vz);
+      sector.normals.push(na.getX(i),na.getY(i),na.getZ(i));
+      sector.colors.push(col.r,col.g,col.b);
     }
     const idx=geo.index;
-    if(idx){for(let i=0;i<idx.count;i++)indices.push(base+idx.getX(i));}
-    else {for(let i=0;i<pa.count;i++)indices.push(base+i);}
-    const xs=pts.map(p=>p.x),zs=pts.map(p=>p.z),cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
-    const ww=Math.max(1,Math.max(...xs)-Math.min(...xs)),dd=Math.max(1,Math.max(...zs)-Math.min(...zs));
+    if(idx){for(let i=0;i<idx.count;i++)sector.indices.push(base+idx.getX(i));}
+    else{for(let i=0;i<pa.count;i++)sector.indices.push(base+i);}
     addObstacle(cx,cz,ww,dd,h);
     allBuildings.push({x:cx,z:cz,w:ww,d:dd,h,type:'osm-building',name:tag.name||tag['name:fr']||''});
     if(tag.shop||['retail','commercial','supermarket','kiosk'].includes(tag.building)||['restaurant','cafe','bank','fast_food'].includes(tag.amenity)){
@@ -1277,35 +1301,41 @@ function buildOSMBuildings(ways,nodes) {
       addOSMStorefront(pts,tag);
       createOSMStoreEntrance(pts,tag,h,col);
     }
-    const residential = ['house','residential','detached','semidetached_house','terrace','apartments','bungalow','dormitory'].includes(tag.building) || tag.building==='yes' && !tag.amenity && !tag.shop;
-    if(residential && residentialDoorCount < 70 && ww >= 6 && dd >= 6 && residentialDoorCount % 2 === 0) {
-      createOSMResidentialEntrance(pts, tag, h, col);
-    }
+    const residential=['house','residential','detached','semidetached_house','terrace','apartments','bungalow','dormitory'].includes(tag.building)||(tag.building==='yes'&&!tag.amenity&&!tag.shop);
+    if(residential&&residentialDoorCount<70&&ww>=6&&dd>=6&&residentialDoorCount%2===0)
+      createOSMResidentialEntrance(pts,tag,h,col);
     residentialDoorCount++;
-    geo.dispose(); count++;
+    geo.dispose();count++;sector.buildings++;
   });
-  if(positions.length){
-    const merged=new THREE.BufferGeometry();
-    merged.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-    merged.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
-    merged.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-    merged.setIndex(indices); merged.computeBoundingSphere();
-    const mesh=new THREE.Mesh(merged,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
-    // Recalcule les limites après projection sur le relief pour éviter un culling prématuré.
-    merged.computeBoundingSphere();
-    mesh.frustumCulled=false; mesh.castShadow=false; mesh.receiveShadow=false; mesh.visible=true; scene.add(mesh);
-  }
-  if(facadePositions.length){
-    const facade=new THREE.BufferGeometry();
-    facade.setAttribute('position',new THREE.Float32BufferAttribute(facadePositions,3));
-    facade.setAttribute('color',new THREE.Float32BufferAttribute(facadeColors,3));
-    facade.setIndex(facadeIndices);facade.computeVertexNormals();facade.computeBoundingSphere();
-    const facadeMesh=new THREE.Mesh(facade,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
-    facadeMesh.frustumCulled=false;facadeMesh.castShadow=false;facadeMesh.receiveShadow=false;facadeMesh.visible=true;scene.add(facadeMesh);
-  }
-  console.info('Bâtiments OSM regroupés :',count);
+  let sectorCount=0;
+  sectors.forEach(sector=>{
+    const group=new THREE.Group();
+    group.userData.cullX=(sector.sx+.5)*SECTOR_SIZE;
+    group.userData.cullZ=(sector.sz+.5)*SECTOR_SIZE;
+    if(sector.positions.length){
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute(sector.positions,3));
+      geometry.setAttribute('normal',new THREE.Float32BufferAttribute(sector.normals,3));
+      geometry.setAttribute('color',new THREE.Float32BufferAttribute(sector.colors,3));
+      geometry.setIndex(sector.indices);geometry.computeBoundingSphere();
+      const mesh=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
+      mesh.castShadow=false;mesh.receiveShadow=false;group.add(mesh);
+    }
+    let detailMesh=null;
+    if(sector.facadePositions.length){
+      const facade=new THREE.BufferGeometry();
+      facade.setAttribute('position',new THREE.Float32BufferAttribute(sector.facadePositions,3));
+      facade.setAttribute('color',new THREE.Float32BufferAttribute(sector.facadeColors,3));
+      facade.setIndex(sector.facadeIndices);facade.computeVertexNormals();facade.computeBoundingSphere();
+      detailMesh=new THREE.Mesh(facade,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
+      detailMesh.castShadow=false;detailMesh.receiveShadow=false;group.add(detailMesh);
+    }
+    scene.add(group);
+    registerDistanceManagedBuilding(group,detailMesh);
+    sectorCount++;
+  });
+  console.info('Bâtiments OSM répartis en secteurs :',count,'bâtiments,',sectorCount,'secteurs; détails de façade limités par distance');
 }
-
 
 
 function buildMunicipalOffices(){
