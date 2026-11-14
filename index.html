@@ -920,7 +920,7 @@ function buildOSMRoads(ways, nodes) {
   const roadWidths={motorway:15,motorway_link:9,trunk:13,trunk_link:8,primary:11,primary_link:7,secondary:8,secondary_link:6,tertiary:6.5,tertiary_link:5,residential:5.2,unclassified:4.5,service:3.2,living_street:5,track:3.2,busway:7};
   const pedestrianOnly=new Set(['footway','path','pedestrian','steps','cycleway']);
   const ignored=new Set(['construction','proposed','raceway']);
-  const vertices=[],indices=[];
+  const vertices=[],indices=[],walkVertices=[],walkIndices=[];
   function addQuad(a,b,w,y){
     const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.4)return;
     const extend=Math.min(.7,len*.06),ux=dx/len,uz=dz/len;
@@ -929,6 +929,13 @@ function buildOSMRoads(ways, nodes) {
     const p1={x:aa.x+nx,z:aa.z+nz},p2={x:aa.x-nx,z:aa.z-nz},p3={x:bb.x-nx,z:bb.z-nz},p4={x:bb.x+nx,z:bb.z+nz};
     vertices.push(p1.x,terrainHeight(p1.x,p1.z)+y,p1.z,p2.x,terrainHeight(p2.x,p2.z)+y,p2.z,p3.x,terrainHeight(p3.x,p3.z)+y,p3.z,p4.x,terrainHeight(p4.x,p4.z)+y,p4.z);
     indices.push(k,k+1,k+2,k,k+2,k+3);
+  }
+  function addWalkQuad(a,b,w,y){
+    const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.4)return;
+    const nx=-dz/len*w/2,nz=dx/len*w/2,k=walkVertices.length/3;
+    const p1={x:a.x+nx,z:a.z+nz},p2={x:a.x-nx,z:a.z-nz},p3={x:b.x-nx,z:b.z-nz},p4={x:b.x+nx,z:b.z+nz};
+    walkVertices.push(p1.x,terrainHeight(p1.x,p1.z)+y,p1.z,p2.x,terrainHeight(p2.x,p2.z)+y,p2.z,p3.x,terrainHeight(p3.x,p3.z)+y,p3.z,p4.x,terrainHeight(p4.x,p4.z)+y,p4.z);
+    walkIndices.push(k,k+1,k+2,k,k+2,k+3);
   }
   ways.forEach(w=>{
     const tag=w.tags.highway;if(ignored.has(tag))return;
@@ -941,6 +948,8 @@ function buildOSMRoads(ways, nodes) {
     if(pedestrianOnly.has(tag)){
       let last=null;
       for(const p of raw){if(!last||Math.hypot(p.x-last.x,p.z-last.z)>=18){pedestrianNodes.push(p);last=p;}}
+      const pathWidth=tag==='pedestrian'?3.2:tag==='cycleway'?2.2:tag==='steps'?1.9:1.55;
+      for(let j=1;j<raw.length;j++)addWalkQuad(raw[j-1],raw[j],pathWidth,.17);
       return;
     }
     const width=roadWidths[tag]||4;
@@ -957,7 +966,8 @@ function buildOSMRoads(ways, nodes) {
     }
   });
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
-  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a}));mesh.receiveShadow=!mobilePerformanceMode;scene.add(mesh);
+  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x34383a}));mesh.receiveShadow=!mobilePerformanceMode;mesh.name='osm-road-network';scene.add(mesh);
+  if(walkVertices.length){const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute(walkVertices,3));wg.setIndex(walkIndices);wg.computeVertexNormals();const wm=new THREE.Mesh(wg,new THREE.MeshLambertMaterial({color:0xbdb8ad,side:THREE.DoubleSide}));wm.receiveShadow=!mobilePerformanceMode;wm.name='osm-pedestrian-paths';scene.add(wm);}
   rebuildPedestrianGrid();
   decorateOSMStreets();
   const seen=new Set();
@@ -1281,7 +1291,7 @@ function findNearbyResidentialDoor() {
 function buildOSMWaterAndParks(ways,nodes) {
   ways.forEach(w=>{
     const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean);if(pts.length<4)return;
-    const shape=new THREE.Shape();shape.moveTo(pts[0].x,pts[0].z);for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z);shape.closePath();
+    const shape=new THREE.Shape();shape.moveTo(pts[0].x,-pts[0].z);for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,-pts[i].z);shape.closePath();
     const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
     // Les parcs et plans d'eau suivent le relief au lieu de former des plaques planes au-dessus des rues.
     const pos=geo.attributes.position;
