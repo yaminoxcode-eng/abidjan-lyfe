@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Abidjan Life — V1.7 Comptes et validation mobile</title>
+<title>Abidjan Life — V1.8 Optimisation simulation</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -3837,9 +3837,9 @@ function animate() {
     updateElevatorTravel(delta);
     updatePlayer(delta);
     npcUpdateAccumulator+=delta;
-    if(npcUpdateAccumulator>=.05){const npcDelta=Math.min(npcUpdateAccumulator,.12);npcUpdateAccumulator=0;updateNPCs(npcDelta);}
+    if(npcUpdateAccumulator>=.10){const npcDelta=Math.min(npcUpdateAccumulator,.12);npcUpdateAccumulator=0;updateNPCs(npcDelta);}
     vehicleUpdateAccumulator+=delta;
-    if(vehicleUpdateAccumulator>=1/30){const vehicleDelta=Math.min(vehicleUpdateAccumulator,.12);vehicleUpdateAccumulator=0;updateVehicles(vehicleDelta);}
+    if(vehicleUpdateAccumulator>=1/20){const vehicleDelta=Math.min(vehicleUpdateAccumulator,.12);vehicleUpdateAccumulator=0;updateVehicles(vehicleDelta);}
     updateTrafficLights(delta);
     updateParticles(delta);
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
