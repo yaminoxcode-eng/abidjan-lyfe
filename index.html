@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Abidjan Life — Refonte urbaine V1.3</title>
+<title>Abidjan Life — Stabilisation V1.6</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -578,13 +578,42 @@ function isInsideAnyObstacle(x, z, margin) {
 }
 
 function resolveCollisions(pos, radius) {
-  for (const o of nearbyObstacles(pos.x,pos.z,OBSTACLE_CELL+radius+4)) {
-    const hw = o.w / 2 + radius, hd = o.d / 2 + radius;
-    const dx = pos.x - o.x, dz = pos.z - o.z;
-    if (Math.abs(dx) < hw && Math.abs(dz) < hd) {
-      const ox = hw - Math.abs(dx), oz = hd - Math.abs(dz);
-      if (ox < oz) pos.x = o.x + Math.sign(dx || 1) * hw;
-      else pos.z = o.z + Math.sign(dz || 1) * hd;
+  for (const o of nearbyObstacles(pos.x,pos.z,radius+3)) {
+    const hw=o.w/2+radius, hd=o.d/2+radius;
+    const dx=pos.x-o.x, dz=pos.z-o.z;
+    if(Math.abs(dx)<hw && Math.abs(dz)<hd){
+      const ox=hw-Math.abs(dx), oz=hd-Math.abs(dz);
+      if(ox<oz) pos.x=o.x+Math.sign(dx||1)*hw;
+      else pos.z=o.z+Math.sign(dz||1)*hd;
+    }
+  }
+}
+
+// Résolution par axe : le joueur peut glisser le long d'un mur au lieu
+// d'être repoussé en diagonale ou de rester bloqué contre un angle.
+function resolveWorldAxis(pos, axis, radius) {
+  for(const o of nearbyObstacles(pos.x,pos.z,radius+3)){
+    const hw=o.w/2+radius, hd=o.d/2+radius;
+    const dx=pos.x-o.x, dz=pos.z-o.z;
+    if(Math.abs(dx)<hw && Math.abs(dz)<hd){
+      if(axis==='x') pos.x=o.x+Math.sign(dx||1)*hw;
+      else pos.z=o.z+Math.sign(dz||1)*hd;
+    }
+  }
+}
+
+function resolveVehicleAxis(pos, axis, radius) {
+  for(let i=0;i<vehicles.length;i++){
+    const v=vehicles[i];
+    if(!v || !v.visible || (v.userData && v.userData.wreck)) continue;
+    const dx=pos.x-v.position.x, dz=pos.z-v.position.z;
+    const minDist=radius+2.1;
+    if(axis==='x' && Math.abs(dz)<minDist){
+      const edge=Math.sqrt(Math.max(0,minDist*minDist-dz*dz));
+      if(Math.abs(dx)<edge) pos.x=v.position.x+Math.sign(dx||1)*edge;
+    } else if(axis==='z' && Math.abs(dx)<minDist){
+      const edge=Math.sqrt(Math.max(0,minDist*minDist-dx*dx));
+      if(Math.abs(dz)<edge) pos.z=v.position.z+Math.sign(dz||1)*edge;
     }
   }
 }
@@ -2578,18 +2607,21 @@ function animateCharacter(char, delta, moving) {
 // ============================================================
 // INTÉRIEURS / JOUEUR
 // ============================================================
-function resolveInteriorCollisions(pos,interior,radius){
-  const gp=interior.group.position;
-  // Plusieurs passes empêchent de traverser un angle ou deux meubles rapprochés.
-  for(let pass=0;pass<3;pass++){
-    const lx=pos.x-gp.x,lz=pos.z-gp.z;
-    for(const c of interior.colliders||[]){
-      const hw=c.w/2+radius,hd=c.d/2+radius;
-      const dx=pos.x-(gp.x+c.x),dz=pos.z-(gp.z+c.z);
-      if(Math.abs(dx)<hw&&Math.abs(dz)<hd){
-        const ox=hw-Math.abs(dx),oz=hd-Math.abs(dz);
-        if(ox<oz)pos.x=gp.x+c.x+Math.sign(dx||1)*hw;
-        else pos.z=gp.z+c.z+Math.sign(dz||1)*hd;
+function resolveInteriorCollisions(pos,interior,radius,axis){
+  const gp=interior.group.position, colliders=interior.colliders||[];
+  // Plusieurs passes stabilisent les angles et les meubles rapprochés.
+  for(let pass=0;pass<(axis?2:3);pass++){
+    for(const c of colliders){
+      const hw=c.w/2+radius, hd=c.d/2+radius;
+      const dx=pos.x-(gp.x+c.x), dz=pos.z-(gp.z+c.z);
+      if(Math.abs(dx)<hw && Math.abs(dz)<hd){
+        if(axis==='x') pos.x=gp.x+c.x+Math.sign(dx||1)*hw;
+        else if(axis==='z') pos.z=gp.z+c.z+Math.sign(dz||1)*hd;
+        else {
+          const ox=hw-Math.abs(dx), oz=hd-Math.abs(dz);
+          if(ox<oz) pos.x=gp.x+c.x+Math.sign(dx||1)*hw;
+          else pos.z=gp.z+c.z+Math.sign(dz||1)*hd;
+        }
       }
     }
   }
@@ -2765,24 +2797,26 @@ function updatePlayer(delta) {
     player.rotation.y += diff * Math.min(1, delta * 10);
   }
   let speed = (keys['shift'] ? 15.2 : 6.6) * delta * (lifeState.energy<12?.68:lifeState.energy<28?.84:1);
-  const newPos = player.position.clone();
-  newPos.x += move.x * speed;
-  newPos.z += move.z * speed;
-
-  if (currentInterior) {
-    const roomW = currentInterior.roomW, roomD = currentInterior.roomD;
-    const gp = currentInterior.group.position;
-    newPos.x = Math.max(gp.x - roomW / 2 + 0.5, Math.min(gp.x + roomW / 2 - 0.5, newPos.x));
-    newPos.z = Math.max(gp.z - roomD / 2 + 0.5, Math.min(gp.z + roomD / 2 - 0.5, newPos.z));
-    resolveInteriorCollisions(newPos,currentInterior,.36);
-    newPos.x = Math.max(gp.x - roomW / 2 + 0.52, Math.min(gp.x + roomW / 2 - 0.52, newPos.x));
-    newPos.z = Math.max(gp.z - roomD / 2 + 0.52, Math.min(gp.z + roomD / 2 - 0.52, newPos.z));
+  const newPos=player.position.clone();
+  if(currentInterior){
+    const roomW=currentInterior.roomW, roomD=currentInterior.roomD, gp=currentInterior.group.position;
+    const minX=gp.x-roomW/2+.52, maxX=gp.x+roomW/2-.52;
+    const minZ=gp.z-roomD/2+.52, maxZ=gp.z+roomD/2-.52;
+    // On résout X puis Z séparément : longer les murs et contourner les meubles.
+    newPos.x=Math.max(minX,Math.min(maxX,newPos.x+move.x*speed));
+    resolveInteriorCollisions(newPos,currentInterior,.36,'x');
+    newPos.z=Math.max(minZ,Math.min(maxZ,newPos.z+move.z*speed));
+    resolveInteriorCollisions(newPos,currentInterior,.36,'z');
+    newPos.x=Math.max(minX,Math.min(maxX,newPos.x));
+    newPos.z=Math.max(minZ,Math.min(maxZ,newPos.z));
   } else {
-    resolveCollisions(newPos, 0.42);
-    resolveVehicleCollisions(newPos, 0.42);
-    const limit = CITY_SIZE / 2 - 8;
-    newPos.x = Math.max(-limit, Math.min(limit, newPos.x));
-    newPos.z = Math.max(-limit, Math.min(limit, newPos.z));
+    const limit=CITY_SIZE/2-8;
+    newPos.x=Math.max(-limit,Math.min(limit,newPos.x+move.x*speed));
+    resolveWorldAxis(newPos,'x',.42);
+    resolveVehicleAxis(newPos,'x',.42);
+    newPos.z=Math.max(-limit,Math.min(limit,newPos.z+move.z*speed));
+    resolveWorldAxis(newPos,'z',.42);
+    resolveVehicleAxis(newPos,'z',.42);
   }
   player.position.x = newPos.x;
   player.position.z = newPos.z;
@@ -3717,7 +3751,8 @@ function drawMinimap() {
 function animate() {
   requestAnimationFrame(animate);
   if (!gameStarted || !renderer) return;
-  const delta = Math.min(clock.getDelta(), 0.1);
+  const rawDelta=clock.getDelta();
+  const delta=Math.min(Number.isFinite(rawDelta)?rawDelta:0,0.05);
   try {
     updateLifeSimulation(delta);
     updateYangoRide(delta);
