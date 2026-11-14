@@ -155,6 +155,20 @@
   @media(max-width:760px){#phone{right:10px;bottom:10px;width:310px;height:560px;max-height:78vh}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
   #accountOverlay{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321f2,#102d3bf2);backdrop-filter:blur(8px);color:#fff}#accountOverlay.open{display:flex}#accountCard{width:min(430px,100%);padding:24px;border:1px solid #e9c77b88;border-radius:20px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#accountCard h2{margin:5px 0 8px}#accountCard p{color:#c5d8e4;font-size:13px;line-height:1.45}#accountCard label{display:block;margin:12px 0 5px;font-size:12px;color:#dce8ef}#accountCard input{width:100%;padding:12px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}#accountCard button{padding:11px 14px;border-radius:9px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer;margin:8px 5px 0 0}#accountCard .primary{background:#d5a94e;color:#17232c}#accountStatus{min-height:34px;color:#ffe0a0;font-size:12px;margin-top:12px}#accountDemoCode{padding:9px;background:#ffffff12;border:1px dashed #e5c77f;border-radius:8px;color:#ffe0a0;display:none;font-weight:800;letter-spacing:3px;text-align:center}#creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}
+
+  /* V1.11 — commandes tactiles */
+  #abjMobileControls{position:fixed;inset:0;z-index:30;pointer-events:none;display:none;touch-action:none;font-family:system-ui,sans-serif}
+  #abjStickBase{position:absolute;left:18px;bottom:26px;width:142px;height:142px;border-radius:50%;border:2px solid rgba(255,255,255,.55);background:rgba(7,20,34,.36);box-shadow:0 4px 18px #0007;pointer-events:auto;touch-action:none}
+  #abjStickKnob{position:absolute;left:43px;top:43px;width:52px;height:52px;border-radius:50%;background:rgba(245,196,91,.88);border:2px solid #fff;box-shadow:0 2px 10px #0008;pointer-events:none}
+  .abjTouchBtn{position:absolute;display:flex;align-items:center;justify-content:center;min-width:62px;height:62px;padding:0 12px;border-radius:50%;border:2px solid rgba(255,255,255,.72);background:rgba(8,26,43,.76);color:#fff;font-weight:800;font-size:12px;letter-spacing:.3px;box-shadow:0 4px 14px #0008;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+  .abjTouchBtn:active{background:rgba(203,146,54,.92);transform:scale(.96)}
+  #abjRunBtn{right:22px;bottom:28px;width:70px;height:70px}
+  #abjJumpBtn{right:105px;bottom:105px;width:66px;height:66px;background:rgba(23,91,126,.82)}
+  #abjInteractBtn{right:24px;bottom:116px;width:78px;height:58px;border-radius:18px;background:rgba(133,83,31,.88)}
+  #abjFurnitureBtn{right:111px;bottom:28px;width:62px;height:62px;border-radius:18px;background:rgba(67,89,75,.88)}
+  @media (max-width:700px),(pointer:coarse){#abjMobileControls{display:block}}
+  @media (max-width:390px){#abjStickBase{width:124px;height:124px;left:12px;bottom:18px}#abjStickKnob{left:35px;top:35px}#abjRunBtn{right:14px;bottom:18px}#abjJumpBtn{right:88px;bottom:92px}#abjInteractBtn{right:12px;bottom:102px}#abjFurnitureBtn{right:95px;bottom:18px}}
+
 </style>
 </head>
 <body>
@@ -468,6 +482,7 @@ function init() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobileLite ? 1 : 1.5));
   document.body.appendChild(renderer.domElement);
   clock = new THREE.Clock();
+  createAbidjanMobileControls();
 
   scene.add(new THREE.AmbientLight(0xfff5e6, 0.72));
   const sun = new THREE.DirectionalLight(0xffe8c8, 0.75);
@@ -557,6 +572,50 @@ function onKeyDown(e) {
   if (k === 'm') { togglePhone(); keys['m']=false; return; }
   if (k === 'p') { togglePhone(); keys['p']=false; return; }
   if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+}
+
+
+function createAbidjanMobileControls(){
+  if(document.getElementById('abjMobileControls'))return;
+  const root=document.createElement('div');
+  root.id='abjMobileControls';
+  root.innerHTML='<div id="abjStickBase" aria-label="Joystick de déplacement"><div id="abjStickKnob"></div></div><button id="abjRunBtn" class="abjTouchBtn" type="button">COURIR</button><button id="abjJumpBtn" class="abjTouchBtn" type="button">SAUT</button><button id="abjInteractBtn" class="abjTouchBtn" type="button">ACTION</button><button id="abjFurnitureBtn" class="abjTouchBtn" type="button">MEUBLE</button>';
+  document.body.appendChild(root);
+  const base=root.querySelector('#abjStickBase'),knob=root.querySelector('#abjStickKnob');
+  const run=root.querySelector('#abjRunBtn'),jump=root.querySelector('#abjJumpBtn');
+  const interact=root.querySelector('#abjInteractBtn'),furniture=root.querySelector('#abjFurnitureBtn');
+  let stickPointer=null,originX=0,originY=0;
+  const clearStick=()=>{keys.z=keys.q=keys.s=keys.d=false;knob.style.transform='translate(0,0)';};
+  const updateStick=e=>{
+    if(e.pointerId!==stickPointer)return;
+    const dx=e.clientX-originX,dy=e.clientY-originY,limit=43,len=Math.hypot(dx,dy),scale=len>limit?limit/len:1;
+    const x=dx*scale,y=dy*scale,dead=11;
+    knob.style.transform='translate('+x+'px,'+y+'px)';
+    keys.q=x< -dead;keys.d=x>dead;keys.z=y< -dead;keys.s=y>dead;
+  };
+  base.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();stickPointer=e.pointerId;const r=base.getBoundingClientRect();originX=r.left+r.width/2;originY=r.top+r.height/2;base.setPointerCapture(e.pointerId);updateStick(e);});
+  base.addEventListener('pointermove',e=>{e.preventDefault();updateStick(e);});
+  const endStick=e=>{if(stickPointer===e.pointerId){stickPointer=null;clearStick();}};
+  base.addEventListener('pointerup',endStick);base.addEventListener('pointercancel',endStick);base.addEventListener('lostpointercapture',endStick);
+  const hold=(el,key)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();keys[key]=true;el.setPointerCapture(e.pointerId);});const end=()=>{keys[key]=false;};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);};
+  hold(run,'shift');
+  jump.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();jumpQueued=true;});
+  const trigger=(key)=>{if(typeof onKeyDown==='function')onKeyDown({key,repeat:false,target:null,preventDefault(){}});};
+  interact.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();trigger('e');});
+  furniture.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();trigger('f');});
+  const canvas=renderer&&renderer.domElement;
+  if(canvas){
+    canvas.style.touchAction='none';
+    let lastTouch=null,lastPinch=0;
+    canvas.addEventListener('touchstart',e=>{if(e.touches.length===1){lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};lastPinch=0;}else if(e.touches.length===2){lastTouch=null;lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}},{passive:false});
+    canvas.addEventListener('touchmove',e=>{
+      e.preventDefault();
+      if(e.touches.length===1&&lastTouch){const t=e.touches[0],dx=t.clientX-lastTouch.x,dy=t.clientY-lastTouch.y;rotateCameraByMouse(dx,dy);lastTouch={x:t.clientX,y:t.clientY};}
+      else if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(lastPinch){cameraZoom=Math.max(.55,Math.min(2.1,cameraZoom*(lastPinch/d)));}lastPinch=d;}
+    },{passive:false});
+    const endTouch=()=>{lastTouch=null;lastPinch=0;};
+    canvas.addEventListener('touchend',endTouch,{passive:true});canvas.addEventListener('touchcancel',endTouch,{passive:true});
+  }
 }
 
 function onResize() {
