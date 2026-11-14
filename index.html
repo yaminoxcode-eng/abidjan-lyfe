@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Abidjan Life — V1.8 Optimisation simulation</title>
+<title>Abidjan Life — V1.9 Optimisation distance 3D</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -309,6 +309,8 @@ const movementState = { yVelocity: 0, onGround: true };
 let scene, camera, renderer, clock;
 let mobilePerformanceMode=false;
 let npcUpdateAccumulator=0,vehicleUpdateAccumulator=0;
+let distanceCullAccumulator=0;
+const distanceManagedBuildings=[];
 let player = null;
 let npcs = [], vehicles = [], trafficLights = [], obstacles = [], doors = [], poi = [], particles = [], parks = [], allBuildings = [];
 let interiors = {};
@@ -594,6 +596,30 @@ function onCameraWheel(e){
 // UTILITAIRES COLLISION / ROUTE
 // ============================================================
 function obstacleCellKey(x, z) { return Math.floor(x / OBSTACLE_CELL) + ':' + Math.floor(z / OBSTACLE_CELL); }
+function registerDistanceManagedBuilding(group){
+  if(!group)return;
+  group.userData.distanceManaged=true;
+  group.userData.distanceHidden=false;
+  distanceManagedBuildings.push(group);
+}
+function updateDistanceManagedBuildings(delta){
+  if(!player||!distanceManagedBuildings.length)return;
+  distanceCullAccumulator+=delta;
+  if(distanceCullAccumulator<.35)return;
+  distanceCullAccumulator=0;
+  const limit=mobilePerformanceMode?1450:2300;
+  const restore=limit+(mobilePerformanceMode?180:260);
+  const limitSq=limit*limit,restoreSq=restore*restore;
+  const px=player.position.x,pz=player.position.z;
+  for(let i=0;i<distanceManagedBuildings.length;i++){
+    const group=distanceManagedBuildings[i];
+    if(!group)continue;
+    const dx=group.position.x-px,dz=group.position.z-pz,distSq=dx*dx+dz*dz;
+    if(!group.userData.distanceHidden&&distSq>limitSq){group.visible=false;group.userData.distanceHidden=true;}
+    else if(group.userData.distanceHidden&&distSq<restoreSq){group.visible=true;group.userData.distanceHidden=false;}
+  }
+}
+
 function addObstacle(x, z, w, d, h) {
   const o = { x, z, w, d, h };
   obstacles.push(o);
@@ -900,7 +926,7 @@ function buildPlayableUrbanCore(){
         }
         // Petites installations de toiture, cuve ou local technique.
         if(floors>2){makeBox(g,2.4,1.4,2.4,baseMat,w*.22,h+1,0);}
-        g.position.set(x,terrainHeight(x,z),z);scene.add(g);
+        g.position.set(x,terrainHeight(x,z),z);scene.add(g);registerDistanceManagedBuilding(g);
         addObstacle(x,z,w,d,h);allBuildings.push({x,z,w,d,h,type:shop?'urban-shop':'urban-building',name:shop?'Commerce de quartier':''});
         if(shop)addPOI(x,z,'commerce','Commerce de quartier',{shop:'convenience'});
         made++;
@@ -1291,7 +1317,7 @@ function buildMunicipalOffices(){
  const roof=new THREE.Mesh(new THREE.BoxGeometry(18.6,.55,14.6),new THREE.MeshLambertMaterial({color:0x6a7777}));roof.position.y=7.3;g.add(roof);
  const portico=new THREE.Mesh(new THREE.BoxGeometry(6,3.5,2.3),new THREE.MeshLambertMaterial({color:0xbda77e}));portico.position.set(0,1.75,7.3);g.add(portico);
  for(const x of [-6,6]){const win=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.6,.1),new THREE.MeshLambertMaterial({color:0x477483}));win.position.set(x,4,7.08);g.add(win);}
- g.position.set(px,terrainHeight(px,pz),pz);scene.add(g);addObstacle(px,pz,18,14,8);allBuildings.push({x:px,z:pz,w:18,d:14,h:8,type:'mairie',name:'Mairie de '+zone.name});
+ g.position.set(px,terrainHeight(px,pz),pz);scene.add(g);registerDistanceManagedBuilding(g);addObstacle(px,pz,18,14,8);allBuildings.push({x:px,z:pz,w:18,d:14,h:8,type:'mairie',name:'Mairie de '+zone.name});
  const id='mairie-'+idx,doorZ=pz+7.15;interiors[id]=generateInterior(id,18,14,2,0xd7d0bf,'plateau');doors.push({x:px,z:doorZ,id,rot:0,normal:new THREE.Vector3(0,0,1),home:true,isMunicipality:true,commune:zone.name,buildingType:'mairie'});addPOI(px,pz,'mairie','Mairie de '+zone.name,{commune:zone.name});count++;
  });console.info('Mairies communales créées :',count);
 }
@@ -1299,7 +1325,7 @@ function buildMunicipalOffices(){
 function buildResidentialInfill(){
  if(!scene||!doors.length)return;let made=0;const homeDoors=doors.filter(d=>String(d.id).startsWith('home'));const palette=[0xc9b99c,0xd6c4a5,0xb7aa91,0xd4b08a,0xc8c2b4];
  function roadNear(x,z){let best=Infinity;for(const r of osmRoadSegments){if(!['primary','secondary','tertiary','residential','living_street','service'].includes(r.type))continue;const dx=r.b.x-r.a.x,dz=r.b.z-r.a.z,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((x-r.a.x)*dx+(z-r.a.z)*dz)/l2)),d=Math.hypot(x-(r.a.x+t*dx),z-(r.a.z+t*dz));if(d<best)best=d;}return best;}
- homeDoors.forEach((door,index)=>{if(made>=95)return;const n=door.normal||new THREE.Vector3(0,0,1),side=new THREE.Vector3(-n.z,0,n.x),offsets=[{x:side.x*10-n.x*8,z:side.z*10-n.z*8},{x:-side.x*10-n.x*9,z:-side.z*10-n.z*9}];offsets.forEach((off,j)=>{if(made>=95)return;const x=door.x+off.x,z=door.z+off.z,w=6.5+(index%3)*1.4,d=6.2+(index%2)*1.5,h=4.4+(index%4)*.8;if(roadNear(x,z)<w/2+3||overlapsExisting(x,z,w+1,d+1,h)||isOnRoad(x,z,4))return;const g=new THREE.Group(),wall=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:palette[(index+j)%palette.length]}));wall.position.y=h/2;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);const roof=new THREE.Mesh(new THREE.BoxGeometry(w+.35,.35,d+.35),new THREE.MeshLambertMaterial({color:index%2?0x754b37:0x6c6260}));roof.position.y=h+.15;roof.castShadow=true;g.add(roof);const wm=new THREE.MeshLambertMaterial({color:0x416b79,emissive:0x101c20});for(const sx of [-1,1]){const win=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.05,.08),wm);win.position.set(sx*w*.27,h*.64,d/2+.045);g.add(win);}g.position.set(x,terrainHeight(x,z),z);scene.add(g);addObstacle(x,z,w,d,h+.4);allBuildings.push({x,z,w,d,h:h+.4,type:'residential-infill'});made++;});});console.info('Bâtiments résidentiels de remplissage :',made);
+ homeDoors.forEach((door,index)=>{if(made>=95)return;const n=door.normal||new THREE.Vector3(0,0,1),side=new THREE.Vector3(-n.z,0,n.x),offsets=[{x:side.x*10-n.x*8,z:side.z*10-n.z*8},{x:-side.x*10-n.x*9,z:-side.z*10-n.z*9}];offsets.forEach((off,j)=>{if(made>=95)return;const x=door.x+off.x,z=door.z+off.z,w=6.5+(index%3)*1.4,d=6.2+(index%2)*1.5,h=4.4+(index%4)*.8;if(roadNear(x,z)<w/2+3||overlapsExisting(x,z,w+1,d+1,h)||isOnRoad(x,z,4))return;const g=new THREE.Group(),wall=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:palette[(index+j)%palette.length]}));wall.position.y=h/2;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);const roof=new THREE.Mesh(new THREE.BoxGeometry(w+.35,.35,d+.35),new THREE.MeshLambertMaterial({color:index%2?0x754b37:0x6c6260}));roof.position.y=h+.15;roof.castShadow=true;g.add(roof);const wm=new THREE.MeshLambertMaterial({color:0x416b79,emissive:0x101c20});for(const sx of [-1,1]){const win=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.05,.08),wm);win.position.set(sx*w*.27,h*.64,d/2+.045);g.add(win);}g.position.set(x,terrainHeight(x,z),z);scene.add(g);registerDistanceManagedBuilding(g);addObstacle(x,z,w,d,h+.4);allBuildings.push({x,z,w,d,h:h+.4,type:'residential-infill'});made++;});});console.info('Bâtiments résidentiels de remplissage :',made);
 }
 
 function createOSMStoreEntrance(pts,tags,height,color){
@@ -3842,6 +3868,7 @@ function animate() {
     if(vehicleUpdateAccumulator>=1/20){const vehicleDelta=Math.min(vehicleUpdateAccumulator,.12);vehicleUpdateAccumulator=0;updateVehicles(vehicleDelta);}
     updateTrafficLights(delta);
     updateParticles(delta);
+    updateDistanceManagedBuildings(delta);
     if(playerShowering){showerTimer+=delta;const drops=currentInterior&&currentInterior.interactables.find(i=>i.type==='douche'&&i.floor===currentFloor);if(drops&&drops.object){drops.object.children.forEach((d,i)=>{d.position.y=1.85-((showerTimer*2.2+i*.19)%1.35);d.visible=true;});}}
     districtCheckTimer+=delta;if(districtCheckTimer>.45){districtCheckTimer=0;updateDistrictHUD();}
     const phoneClock=document.getElementById('phoneClock');if(phoneClock)phoneClock.textContent=String(lifeState.hour).padStart(2,'0')+':'+String(lifeState.minute).padStart(2,'0');
