@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Abidjan Life — Stabilisation V1.6</title>
+<title>Abidjan Life — V1.7 Comptes et validation mobile</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
   * { box-sizing: border-box; }
@@ -172,7 +172,7 @@
   </div>
 </div>
 
-<div id="accountOverlay" role="dialog" aria-modal="true"><div id="accountCard"><small style="color:#f4d28b;letter-spacing:2px;font-weight:800">ABIDJAN LIFE · COMPTE</small><h2 id="accountTitle">Connexion</h2><p id="accountIntro">Entre ton numéro de téléphone et ton mot de passe pour retrouver ta sauvegarde.</p><label for="accountPhone">Numéro de téléphone</label><input id="accountPhone" type="tel" inputmode="tel" placeholder="+225 07 00 00 00 00" autocomplete="tel"><label for="accountPassword">Mot de passe</label><input id="accountPassword" type="password" placeholder="Ton mot de passe" autocomplete="current-password"><div id="accountCodeWrap" style="display:none"><label for="accountCode">Code de vérification</label><input id="accountCode" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><div id="accountDemoCode"></div></div><div id="accountNewPasswordWrap" style="display:none"><label for="accountNewPassword">Nouveau mot de passe</label><div style="display:flex;gap:6px"><input id="accountNewPassword" type="password" placeholder="Créer un nouveau mot de passe" autocomplete="new-password" style="flex:1"><button type="button" id="toggleNewPassword" aria-label="Afficher le mot de passe">👁</button></div></div><div id="accountStatus"></div><button class="primary" id="accountContinue">Continuer</button><button id="accountForgot">Mot de passe oublié</button><button id="accountBack" style="display:none">Retour</button><p style="font-size:10px;color:#a9bbc5">Prototype local : le code de vérification est affiché ici pour les tests. Aucun SMS réel n’est envoyé sans service serveur connecté.</p></div></div>
+<div id="accountOverlay" role="dialog" aria-modal="true"><div id="accountCard"><small style="color:#f4d28b;letter-spacing:2px;font-weight:800">ABIDJAN LIFE · COMPTE</small><h2 id="accountTitle">Connexion</h2><p id="accountIntro">Entre ton numéro de téléphone et ton mot de passe pour retrouver ta sauvegarde.</p><label for="accountPhone">Numéro de téléphone</label><input id="accountPhone" type="tel" inputmode="tel" placeholder="+225 07 00 00 00 00" autocomplete="tel" maxlength="18"><label for="accountPassword">Mot de passe</label><input id="accountPassword" type="password" placeholder="Ton mot de passe" autocomplete="current-password"><div id="accountCodeWrap" style="display:none"><label for="accountCode">Code de vérification</label><input id="accountCode" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><div id="accountDemoCode"></div></div><div id="accountNewPasswordWrap" style="display:none"><label for="accountNewPassword">Nouveau mot de passe</label><div style="display:flex;gap:6px"><input id="accountNewPassword" type="password" placeholder="Créer un nouveau mot de passe" autocomplete="new-password" style="flex:1"><button type="button" id="toggleNewPassword" aria-label="Afficher le mot de passe">👁</button></div></div><div id="accountStatus"></div><button class="primary" id="accountContinue">Continuer</button><button id="accountForgot">Mot de passe oublié</button><button id="accountBack" style="display:none">Retour</button><p style="font-size:10px;color:#a9bbc5">Prototype local : le code de vérification est affiché ici pour les tests. Aucun SMS réel n’est envoyé sans service serveur connecté.</p></div></div>
 <div id="creatorOverlay" role="dialog" aria-modal="true" aria-labelledby="creatorTitle">
   <div id="creatorCard">
     <div class="creatorHead"><div><small>ABIDJAN LIFE · IDENTITÉ</small><h2 id="creatorTitle">Créer ton personnage</h2><p>Personnalise ton avatar avant d'entrer dans Abidjan.</p></div><div id="creatorPreview">🧍🏾‍♂️</div></div>
@@ -338,12 +338,76 @@ let activeGameAccount=null,accountFlow='login',pendingAccountCode='',pendingAcco
 // ============================================================
 
 function readGameAccounts(){try{const v=JSON.parse(localStorage.getItem(ACCOUNT_INDEX_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+/* Numéros mobiles ivoiriens : 10 chiffres, préfixes 01, 05 ou 07.
+   Accepte le format local, 225XXXXXXXXXX ou +225XXXXXXXXXX et stocke en +225. */
+function normalizeIvorianMobile(value){
+  let raw=String(value||'').trim();
+  if(!raw || !/^\\+?[0-9\\s().-]+$/.test(raw)) return null;
+  let digits=raw.replace(/\\D/g,'');
+  if(digits.startsWith('225') && digits.length===13) digits=digits.slice(3);
+  if(digits.length!==10 || !/^0[157]\\d{8}$/.test(digits)) return null;
+  return '+225'+digits;
+}
+function findGameAccount(accounts,canonicalPhone){
+  if(accounts[canonicalPhone]) return accounts[canonicalPhone];
+  for(const [savedPhone,account] of Object.entries(accounts)){
+    if(normalizeIvorianMobile(savedPhone)===canonicalPhone) return account;
+  }
+  return null;
+}
 async function passwordDigest(value){if(window.crypto&&crypto.subtle){const bytes=new TextEncoder().encode(String(value));const hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0')).join('');}return 'local-'+btoa(unescape(encodeURIComponent(String(value))));}
-function openAccountGate(){const o=document.getElementById('accountOverlay');o.classList.add('open');accountFlow='login';document.getElementById('accountPhone').value=activeGameAccount||'';document.getElementById('accountPassword').value='';document.getElementById('accountCodeWrap').style.display='none';document.getElementById('accountNewPasswordWrap').style.display='none';document.getElementById('accountDemoCode').style.display='none';document.getElementById('accountTitle').textContent='Connexion / inscription';document.getElementById('accountIntro').textContent='Entre ton numéro et ton mot de passe. Si ce numéro est nouveau, un code de vérification sera demandé pour créer ton compte.';document.getElementById('accountStatus').textContent='';document.getElementById('accountContinue').textContent='Continuer';document.getElementById('accountForgot').style.display='inline-block';document.getElementById('accountBack').style.display='none';}
-function issueLocalAccountCode(phone,flow){pendingAccountPhone=phone;pendingAccountCode=String(Math.floor(100000+Math.random()*900000));accountFlow=flow;document.getElementById('accountCodeWrap').style.display='block';document.getElementById('accountDemoCode').style.display='block';document.getElementById('accountDemoCode').textContent='Code de test : '+pendingAccountCode;document.getElementById('accountBack').style.display='inline-block';document.getElementById('accountForgot').style.display='none';document.getElementById('accountContinue').textContent='Vérifier le code';document.getElementById('accountStatus').textContent='Un code local de vérification a été généré pour ce prototype.';}
-async function accountContinue(){const phone=document.getElementById('accountPhone').value.replace(/[^+0-9]/g,'');const pass=document.getElementById('accountPassword').value;const status=document.getElementById('accountStatus');if(phone.replace(/\D/g,'').length<8){status.textContent='Entre un numéro de téléphone valide.';return;}const accounts=readGameAccounts();if(accountFlow==='login'){const account=accounts[phone];if(account){if(!pass){status.textContent='Entre ton mot de passe.';return;}if(await passwordDigest(pass)!==account.passwordHash){status.textContent='Mot de passe incorrect. Utilise « Mot de passe oublié » si nécessaire.';return;}activateGameAccount(phone);return;}issueLocalAccountCode(phone,'register');return;}if(accountFlow==='register'){if(document.getElementById('accountCode').value.trim()!==pendingAccountCode){status.textContent='Code incorrect. Vérifie les six chiffres.';return;}if(pass.length<6){status.textContent='Choisis un mot de passe d’au moins 6 caractères.';return;}accounts[phone]={passwordHash:await passwordDigest(pass),createdAt:new Date().toISOString()};localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));activateGameAccount(phone);return;}if(accountFlow==='forgot'){if(document.getElementById('accountCode').value.trim()!==pendingAccountCode){status.textContent='Code incorrect.';return;}document.getElementById('accountNewPasswordWrap').style.display='block';document.getElementById('accountContinue').textContent='Enregistrer le nouveau mot de passe';accountFlow='reset';status.textContent='Code validé. Crée un nouveau mot de passe pour retrouver ta sauvegarde.';return;}if(accountFlow==='reset'){const np=document.getElementById('accountNewPassword').value;if(np.length<6){status.textContent='Le nouveau mot de passe doit contenir au moins 6 caractères.';return;}accounts[pendingAccountPhone].passwordHash=await passwordDigest(np);localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));activateGameAccount(pendingAccountPhone);}}
+function openAccountGate(){const o=document.getElementById('accountOverlay');o.classList.add('open');accountFlow='login';document.getElementById('accountPhone').value=activeGameAccount||'';document.getElementById('accountPassword').value='';document.getElementById('accountCodeWrap').style.display='none';document.getElementById('accountNewPasswordWrap').style.display='none';document.getElementById('accountDemoCode').style.display='none';document.getElementById('accountTitle').textContent='Connexion / inscription';document.getElementById('accountIntro').textContent='Entre un numéro mobile ivoirien valide (+225 01, 05 ou 07) et ton mot de passe.';document.getElementById('accountStatus').textContent='';document.getElementById('accountContinue').textContent='Continuer';document.getElementById('accountForgot').style.display='inline-block';document.getElementById('accountBack').style.display='none';}
+function issueLocalAccountCode(phone,flow){pendingAccountPhone=phone;pendingAccountCode=String(Math.floor(100000+Math.random()*900000));accountFlow=flow;document.getElementById('accountCodeWrap').style.display='block';document.getElementById('accountDemoCode').style.display='block';document.getElementById('accountDemoCode').textContent='Code de test local (aucun SMS envoyé) : '+pendingAccountCode;document.getElementById('accountBack').style.display='inline-block';document.getElementById('accountForgot').style.display='none';document.getElementById('accountContinue').textContent='Vérifier le code';document.getElementById('accountStatus').textContent='Prototype : ce code est local et ne prouve pas que le numéro t’appartient.';}
+async function accountContinue(){
+  const status=document.getElementById('accountStatus');
+  const phone=normalizeIvorianMobile(document.getElementById('accountPhone').value);
+  const pass=document.getElementById('accountPassword').value;
+  if(!phone){status.textContent='Numéro invalide. Saisis 10 chiffres commençant par 01, 05 ou 07, avec ou sans +225.';return;}
+  const accounts=readGameAccounts();
+  if(accountFlow==='login'){
+    const account=findGameAccount(accounts,phone);
+    if(account){
+      if(!pass){status.textContent='Entre ton mot de passe.';return;}
+      if(await passwordDigest(pass)!==account.passwordHash){status.textContent='Mot de passe incorrect. Utilise « Mot de passe oublié » si nécessaire.';return;}
+      activateGameAccount(phone);return;
+    }
+    issueLocalAccountCode(phone,'register');return;
+  }
+  if(accountFlow==='register'){
+    if(phone!==pendingAccountPhone){status.textContent='Le numéro a changé. Recommence la vérification.';return;}
+    if(document.getElementById('accountCode').value.trim()!==pendingAccountCode){status.textContent='Code incorrect. Vérifie les six chiffres.';return;}
+    if(pass.length<6){status.textContent='Choisis un mot de passe d’au moins 6 caractères.';return;}
+    accounts[phone]={passwordHash:await passwordDigest(pass),createdAt:new Date().toISOString()};
+    localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));activateGameAccount(phone);return;
+  }
+  if(accountFlow==='forgot'){
+    if(phone!==pendingAccountPhone){status.textContent='Le numéro a changé. Recommence la vérification.';return;}
+    if(document.getElementById('accountCode').value.trim()!==pendingAccountCode){status.textContent='Code incorrect.';return;}
+    document.getElementById('accountNewPasswordWrap').style.display='block';
+    document.getElementById('accountContinue').textContent='Enregistrer le nouveau mot de passe';
+    accountFlow='reset';status.textContent='Code local validé. Crée un nouveau mot de passe pour ce prototype.';return;
+  }
+  if(accountFlow==='reset'){
+    const np=document.getElementById('accountNewPassword').value;
+    if(np.length<6){status.textContent='Le nouveau mot de passe doit contenir au moins 6 caractères.';return;}
+    const account=findGameAccount(accounts,pendingAccountPhone);
+    if(!account){status.textContent='Compte introuvable. Recommence la procédure.';return;}
+    account.passwordHash=await passwordDigest(np);
+    accounts[pendingAccountPhone]=account;
+    localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));
+    activateGameAccount(pendingAccountPhone);
+  }
+}
 function activateGameAccount(phone){activeGameAccount=phone;LIFE_SAVE_KEY='abidjan-life-life-v1:'+phone;document.getElementById('accountOverlay').classList.remove('open');openCharacterCreator();}
-function forgotGamePassword(){const phone=document.getElementById('accountPhone').value.replace(/[^+0-9]/g,'');if(!readGameAccounts()[phone]){document.getElementById('accountStatus').textContent='Aucun compte trouvé avec ce numéro.';return;}issueLocalAccountCode(phone,'forgot');document.getElementById('accountTitle').textContent='Réinitialiser le mot de passe';document.getElementById('accountIntro').textContent='Vérifie ton numéro avec le code puis choisis un nouveau mot de passe.';}
+function forgotGamePassword(){
+  const phone=normalizeIvorianMobile(document.getElementById('accountPhone').value);
+  const status=document.getElementById('accountStatus');
+  if(!phone){status.textContent='Numéro invalide. Utilise 10 chiffres commençant par 01, 05 ou 07.';return;}
+  if(!findGameAccount(readGameAccounts(),phone)){status.textContent='Aucun compte trouvé avec ce numéro.';return;}
+  issueLocalAccountCode(phone,'forgot');
+  document.getElementById('accountTitle').textContent='Réinitialiser le mot de passe';
+  document.getElementById('accountIntro').textContent='Prototype local : aucun SMS réel ne sera envoyé.';
+}
 function backAccountLogin(){accountFlow='login';document.getElementById('accountCodeWrap').style.display='none';document.getElementById('accountNewPasswordWrap').style.display='none';document.getElementById('accountDemoCode').style.display='none';document.getElementById('accountContinue').textContent='Continuer';document.getElementById('accountForgot').style.display='inline-block';document.getElementById('accountBack').style.display='none';document.getElementById('accountTitle').textContent='Connexion / inscription';document.getElementById('accountStatus').textContent='';}
 document.getElementById('toggleNewPassword').addEventListener('click',()=>{const f=document.getElementById('accountNewPassword'),b=document.getElementById('toggleNewPassword');f.type=f.type==='password'?'text':'password';b.textContent=f.type==='text'?'🙈':'👁';b.setAttribute('aria-label',f.type==='text'?'Masquer le mot de passe':'Afficher le mot de passe');});
 document.getElementById('accountContinue').addEventListener('click',accountContinue);document.getElementById('accountForgot').addEventListener('click',forgotGamePassword);document.getElementById('accountBack').addEventListener('click',backAccountLogin);
