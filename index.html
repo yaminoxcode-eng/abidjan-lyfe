@@ -450,17 +450,32 @@ async function envoyerLeSMS(){
     status.textContent='Code envoyé. Consulte tes SMS puis saisis les six chiffres.';
     document.getElementById('accountCode').focus();
   }catch(error){
-    console.error('Firebase SMS error:',error);
+    console.error('Firebase SMS error:',{
+      code:error&&error.code,
+      message:error&&error.message,
+      customData:error&&error.customData,
+      error
+    });
     status.textContent=messageErreurFirebaseSMS(error);
     button.disabled=false;
-    if(error&&(/captcha|recaptcha|expired/i.test(error.code||''))){
-      try{if(recaptchaVerifier){await recaptchaVerifier.clear();recaptchaVerifier=null;}}catch(e){}
+    // Un échec peut invalider le jeton reCAPTCHA, même si Firebase renvoie
+    // seulement auth/internal-error. On détruit toujours le vérificateur
+    // pour repartir sur un challenge propre à la prochaine tentative.
+    try{
+      if(recaptchaVerifier) await recaptchaVerifier.clear();
+    }catch(clearError){
+      console.warn('Impossible de réinitialiser reCAPTCHA:',clearError);
+    }finally{
+      recaptchaVerifier=null;
+      const container=document.getElementById('recaptcha-container');
+      if(container) container.innerHTML='';
     }
   }
 }
 
 function messageErreurFirebaseSMS(error){
   const code=error&&error.code||'';
+  if(code==='auth/internal-error')return 'Firebase a rencontré une erreur interne pendant l’envoi. Vérifie le domaine autorisé, la clé API, le fournisseur Téléphone et les limites SMS du projet Firebase, puis réessaie.';
   if(code==='auth/invalid-phone-number')return 'Le numéro de téléphone est invalide.';
   if(code==='auth/too-many-requests')return 'Trop de tentatives. Réessaie plus tard.';
   if(code==='auth/quota-exceeded')return 'Le quota SMS Firebase est dépassé pour le moment.';
