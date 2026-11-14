@@ -368,8 +368,7 @@ let lastLifeLightingHour = -1;
 // Simulation de vie : besoins, argent et horloge locale du monde.
 const lifeState = { hunger:100, energy:100, social:100, health:100, money:50, hour:8, minute:0, jobCooldown:0, job:'Aucun emploi', workXP:0, bankTransactions:[], contacts:[], messages:[], inventory:{}, homeDecor:{}, documents:{}, education:{courseId:null,remaining:0,certificates:[]}, delivery:null, creator:{certified:false,displayName:'',youtubeFollowers:0,tiktokFollowers:0,posts:[],lastPayoutDay:-1}, housing:{ownedDoorId:null,lease:null,arrears:0,gameDay:1,lastBilledDay:1}, cheats:{money:false,hunger:false,energy:false}, playerProfile:{name:'Mon personnage',gender:'homme',skin:0x7a4a24,hair:0x17120f,shirt:0xe74c3c,pants:0x2c3e50}, lastSave:0 };
 let LIFE_SAVE_KEY = 'abidjan-life-life-v1';
-const ACCOUNT_INDEX_KEY='abidjan-life-accounts-v1';
-let activeGameAccount=null,accountFlow='login',pendingAccountCode='',pendingAccountPhone='';
+
 
 // ============================================================
 // INIT
