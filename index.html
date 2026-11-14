@@ -342,10 +342,10 @@ function readGameAccounts(){try{const v=JSON.parse(localStorage.getItem(ACCOUNT_
    Accepte le format local, 225XXXXXXXXXX ou +225XXXXXXXXXX et stocke en +225. */
 function normalizeIvorianMobile(value){
   let raw=String(value||'').trim();
-  if(!raw || !/^\\+?[0-9\\s().-]+$/.test(raw)) return null;
-  let digits=raw.replace(/\\D/g,'');
+  if(!raw || !/^\+?[0-9\s().-]+$/.test(raw)) return null;
+  let digits=raw.replace(/\D/g,'');
   if(digits.startsWith('225') && digits.length===13) digits=digits.slice(3);
-  if(digits.length!==10 || !/^0[157]\\d{8}$/.test(digits)) return null;
+  if(digits.length!==10 || !/^0[157]\d{8}$/.test(digits)) return null;
   return '+225'+digits;
 }
 function findGameAccount(accounts,canonicalPhone){
@@ -398,7 +398,20 @@ async function accountContinue(){
     activateGameAccount(pendingAccountPhone);
   }
 }
-function activateGameAccount(phone){activeGameAccount=phone;LIFE_SAVE_KEY='abidjan-life-life-v1:'+phone;document.getElementById('accountOverlay').classList.remove('open');openCharacterCreator();}
+function activateGameAccount(phone){
+  const canonical=normalizeIvorianMobile(phone);
+  if(!canonical){document.getElementById('accountStatus').textContent='Numéro mobile ivoirien invalide.';return;}
+  const oldKeys=Object.keys(readGameAccounts()).filter(k=>normalizeIvorianMobile(k)===canonical);
+  const saveKey='abidjan-life-life-v1:'+canonical;
+  if(!localStorage.getItem(saveKey)){
+    for(const oldPhone of oldKeys){
+      const oldSave=localStorage.getItem('abidjan-life-life-v1:'+oldPhone);
+      if(oldSave){localStorage.setItem(saveKey,oldSave);break;}
+    }
+  }
+  activeGameAccount=canonical;LIFE_SAVE_KEY=saveKey;
+  document.getElementById('accountOverlay').classList.remove('open');openCharacterCreator();
+}
 function forgotGamePassword(){
   const phone=normalizeIvorianMobile(document.getElementById('accountPhone').value);
   const status=document.getElementById('accountStatus');
