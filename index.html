@@ -97,7 +97,8 @@
   }
   #interiorHint { position:absolute;top:92px;left:50%;transform:translateX(-50%);z-index:12;display:none;padding:9px 16px;border:1px solid #ffd166;border-radius:9px;background:rgba(10,20,30,.9);color:#ffe2a0;font-weight:700;pointer-events:none; }
   #etage { position:absolute;top:132px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;background:rgba(10,20,30,.75);padding:5px 10px;border-radius:6px;pointer-events:none; }
-  #leafletMap { position:absolute; inset:64px 3vw 88px; z-index:1; border:2px solid #d8c08a; border-radius:8px; overflow:hidden; background:#ddd; }
+  #leafletMap { position:absolute; inset:64px 3vw 88px; z-index:1; border:2px solid #d8c08a; border-radius:8px; overflow:hidden; background:#e8e6dc; }
+  .commune-map-label{background:transparent;border:0}.commune-map-label span{display:block;white-space:nowrap;padding:5px 9px;border:1px solid #ffffffc9;border-radius:7px;background:rgba(22,55,48,.86);box-shadow:0 2px 8px #0004;color:#fff;font:800 11px/1.2 'Segoe UI',Arial,sans-serif;letter-spacing:.35px;text-align:center;text-shadow:0 1px 2px #000}
   #bigMap canvas { display:none;
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
     border: 2px solid #d8c08a; border-radius: 8px; background: #a7ad9b; width: min(94vw,1100px); height: min(82vh,760px);
@@ -135,9 +136,20 @@
   #phone.open{display:flex}#phoneTop{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#ffe0a0;margin:4px 5px 12px;padding:5px 8px;border-bottom:1px solid #ffffff20;letter-spacing:.4px}#phoneTop>span:first-child{font-size:13px}
   #phoneClock{font-size:13px;color:#b9d6e7}#phoneClose{border:0;border-radius:50%;width:30px;height:30px;background:#a83b36;color:white;font-size:17px}
   #phoneScreen{flex:1;min-height:0;border-radius:25px;padding:14px;background:linear-gradient(155deg,#1b3546,#0c1b28 75%);border:1px solid #ffffff20;box-shadow:inset 0 2px 18px #0005;overflow:auto;scrollbar-width:thin;scrollbar-color:#708797 transparent}
-  #phoneScreen h3{margin:2px 0 5px;font-size:19px;letter-spacing:.2px}#phoneScreen h3:after{content:'  ABIDJAN • CONNECTÉ';display:block;margin-top:5px;color:#91adbd;font-size:9px;letter-spacing:1.4px}#phoneApps{display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,minmax(76px,1fr));grid-auto-columns:100%;gap:10px 8px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:#7f9aaa transparent;padding:8px 2px 12px}#phoneApps .phoneApp{scroll-snap-align:start}
-  .phoneApp{min-height:70px;border:1px solid #ffffff22;border-radius:18px;background:linear-gradient(145deg,#ffffff1c,#ffffff08);color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:650;cursor:pointer;box-shadow:0 5px 12px #0002;transition:transform .15s,border-color .15s,background .15s}.phoneApp:hover{transform:translateY(-2px);border-color:#e8c47788;background:linear-gradient(145deg,#ffffff30,#ffffff12)}
-  .phoneApp span{font-size:26px}.phoneApp:active{background:#ffffff38}
+  #phoneScreen h3{margin:2px 0 5px;font-size:19px;letter-spacing:.2px}#phoneScreen h3:after{content:'  ABIDJAN • CONNECTÉ';display:block;margin-top:5px;color:#91adbd;font-size:9px;letter-spacing:1.4px}#phoneApps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:row;grid-auto-rows:minmax(88px,auto);gap:11px;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7f9aaa transparent;padding:10px 2px 14px}#phoneApps .phoneApp{scroll-snap-align:none}
+  .phoneApp{position:relative;min-height:86px;overflow:hidden;border:1px solid #ffffff25;border-radius:19px;background:linear-gradient(145deg,#ffffff20,#ffffff08);color:white;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:7px;padding:12px 10px 10px;font-size:10px;font-weight:750;letter-spacing:.15px;text-align:left;cursor:pointer;box-shadow:0 7px 16px #0003,inset 0 1px #ffffff18;transition:transform .16s,border-color .16s,filter .16s}
+  .phoneApp:before{content:'';position:absolute;width:58px;height:58px;right:-15px;top:-17px;border-radius:50%;background:#ffffff13}
+  .phoneApp:hover{transform:translateY(-3px);border-color:#f0d18d;filter:brightness(1.08)}
+  .phoneApp span{position:relative;z-index:1;display:grid;place-items:center;width:38px;height:38px;border-radius:13px;background:#ffffff20;font-size:23px;box-shadow:inset 0 1px #ffffff35}
+  .phoneApp[data-app="localisation"]{background:linear-gradient(145deg,#247e82,#16434f)}
+  .phoneApp[data-app="transport"],.phoneApp[data-app="yango"]{background:linear-gradient(145deg,#9a6c28,#513c27)}
+  .phoneApp[data-app="banque"]{background:linear-gradient(145deg,#277b69,#174b45)}
+  .phoneApp[data-app="mairie"],.phoneApp[data-app="sante"]{background:linear-gradient(145deg,#416b91,#263e62)}
+  .phoneApp[data-app="messages"],.phoneApp[data-app="contacts"]{background:linear-gradient(145deg,#735b9b,#40355f)}
+  .phoneApp[data-app="camera"],.phoneApp[data-app="gallery"]{background:linear-gradient(145deg,#8a596d,#50384f)}
+  .phoneApp[data-app="jumia"],.phoneApp[data-app="boutique"]{background:linear-gradient(145deg,#a45c36,#613b32)}
+  .phoneApp[data-app="google"],.phoneApp[data-app="youtube"],.phoneApp[data-app="tiktok"]{background:linear-gradient(145deg,#435d79,#26384e)}
+  .phoneApp:active{filter:brightness(1.2)}
   #phoneHome{width:86px;height:5px;border-radius:5px;background:#dce7ed;margin:12px auto 0}
   #phoneAppContent{display:none}#phoneAppContent button{border:1px solid #f4d28b;background:#243e52;color:white;border-radius:9px;padding:9px 12px;margin:5px 3px}
   @media(max-width:760px){#phone{right:10px;bottom:10px;width:310px;height:560px;max-height:78vh}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
@@ -251,13 +263,13 @@ function createAbidjanTerrain(){
   }
   const grass=new THREE.CanvasTexture(canvas);grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(44,44);grass.colorSpace=THREE.SRGBColorSpace||grass.colorSpace;
   grass.anisotropy=Math.min(8,renderer&&renderer.capabilities?renderer.capabilities.getMaxAnisotropy():4);
-  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:grass,color:0xb9b7aa}));mesh.receiveShadow=true;mesh.renderOrder=0;scene.add(mesh);return mesh;
+  const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:grass,color:0xc9c1ad}));mesh.receiveShadow=true;mesh.renderOrder=0;mesh.name='abidjan-continuous-terrain';scene.add(mesh);return mesh;
 }
 let osmRoadSegments = [], trafficRoadSegments = [], pedestrianNodes = [], osmLoaded = false, npcPopulationCreated = false;
 const OBSTACLE_CELL = 96;
 const obstacleGrid = new Map();
 let jumpQueued = false;
-let leafletMap = null, leafletPlayerMarker = null, leafletRoadLayer = null, leafletHeadingLine = null, leafletBaseLayer = null, mapFollowPlayer = true;
+let leafletMap = null, leafletPlayerMarker = null, leafletRoadLayer = null, leafletHeadingLine = null, leafletBaseLayer = null, leafletCommuneLayer = null, mapFollowPlayer = true;
 let cameraMode=false,cameraOriginalFov=55,mediaRecorder=null,recordedChunks=[],gameGallery=[];
 let lastExteriorPosition = null;
 let initialHomeEntered = false;
@@ -911,8 +923,10 @@ function buildOSMRoads(ways, nodes) {
   const vertices=[],indices=[];
   function addQuad(a,b,w,y){
     const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.4)return;
+    const extend=Math.min(.7,len*.06),ux=dx/len,uz=dz/len;
+    const aa={x:a.x-ux*extend,z:a.z-uz*extend},bb={x:b.x+ux*extend,z:b.z+uz*extend};
     const nx=-dz/len*w/2,nz=dx/len*w/2,k=vertices.length/3;
-    const p1={x:a.x+nx,z:a.z+nz},p2={x:a.x-nx,z:a.z-nz},p3={x:b.x-nx,z:b.z-nz},p4={x:b.x+nx,z:b.z+nz};
+    const p1={x:aa.x+nx,z:aa.z+nz},p2={x:aa.x-nx,z:aa.z-nz},p3={x:bb.x-nx,z:bb.z-nz},p4={x:bb.x+nx,z:bb.z+nz};
     vertices.push(p1.x,terrainHeight(p1.x,p1.z)+y,p1.z,p2.x,terrainHeight(p2.x,p2.z)+y,p2.z,p3.x,terrainHeight(p3.x,p3.z)+y,p3.z,p4.x,terrainHeight(p4.x,p4.z)+y,p4.z);
     indices.push(k,k+1,k+2,k,k+2,k+3);
   }
@@ -1265,7 +1279,18 @@ function findNearbyResidentialDoor() {
 }
 
 function buildOSMWaterAndParks(ways,nodes) {
-  ways.forEach(w=>{const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean);if(pts.length<4)return;const shape=new THREE.Shape();shape.moveTo(pts[0].x,pts[0].z);for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z);shape.closePath();const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);const isWater=w.tags.natural==='water';const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:isWater?0x4a9ab1:0x668b4c,side:THREE.DoubleSide}));mesh.position.y=isWater?0.025:0.005;scene.add(mesh);});
+  ways.forEach(w=>{
+    const pts=w.nodes.map(id=>nodes.get(id)).filter(Boolean);if(pts.length<4)return;
+    const shape=new THREE.Shape();shape.moveTo(pts[0].x,pts[0].z);for(let i=1;i<pts.length;i++)shape.lineTo(pts[i].x,pts[i].z);shape.closePath();
+    const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
+    // Les parcs et plans d'eau suivent le relief au lieu de former des plaques planes au-dessus des rues.
+    const pos=geo.attributes.position;
+    for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrainHeight(x,z)-.045);}
+    pos.needsUpdate=true;geo.computeVertexNormals();
+    const isWater=w.tags.natural==='water';
+    const mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:isWater?0x4a9ab1:0x71865b,side:THREE.DoubleSide}));
+    mesh.renderOrder=-1;mesh.receiveShadow=true;mesh.name=isWater?'osm-water-surface':'osm-park-ground';scene.add(mesh);
+  });
 }
 
 function makeStreetLabel(x,z,label){const c=document.createElement('canvas');c.width=512;c.height=64;const ctx=c.getContext('2d');ctx.fillStyle='rgba(20,28,30,.78)';ctx.fillRect(0,0,512,64);ctx.fillStyle='#f5f0df';ctx.font='bold 25px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label.slice(0,36),256,32);const t=new THREE.CanvasTexture(c);const m=new THREE.Mesh(new THREE.PlaneGeometry(22,2.8),new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.set(x,terrainHeight(x,z)+0.08,z);scene.add(m);}
@@ -3621,21 +3646,28 @@ function worldToGeo(x,z){return {lat:ABIDJAN_ORIGIN.lat-z/110900,lon:ABIDJAN_ORI
 function initLeafletMap(){
   if(typeof L==='undefined')return false;
   const container=document.getElementById('leafletMap');if(!container)return false;
-  if(!leafletMap){
-    leafletMap=L.map(container,{zoomControl:true,preferCanvas:true,zoomSnap:.5,minZoom:10,maxZoom:19}).setView([5.32,-4.02],13);
-    leafletMap.getContainer().style.background='#e5e1d7';
-    // Fond cartographique réel d'Abidjan (routes, quartiers et noms de lieux).
-    leafletBaseLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors',crossOrigin:true});leafletBaseLayer.addTo(leafletMap);
-    leafletRoadLayer=L.layerGroup().addTo(leafletMap);
-    leafletPlayerMarker=L.circleMarker([5.323,-4.02],{radius:8,color:'#fff',weight:3,fillColor:'#e7473f',fillOpacity:1}).addTo(leafletMap).bindTooltip('Ta position');
-    leafletHeadingLine=L.polyline([], {color:'#e7473f',weight:4,opacity:.85}).addTo(leafletMap);
-    const follow=document.createElement('button');follow.id='mapFollow';follow.textContent='◎ Recentrer sur moi';follow.onclick=()=>{mapFollowPlayer=true;if(player){const p=worldToGeo(player.position.x,player.position.z);leafletMap.setView([p.lat,p.lon],Math.max(leafletMap.getZoom(),15));}};container.appendChild(follow);leafletMap.on('dragstart',()=>{mapFollowPlayer=false;});
-  }
-  refreshGameMapRoads();
-  const g=player?worldToGeo(player.position.x,player.position.z):{lat:5.32,lon:-4.02};
-  leafletPlayerMarker.setLatLng([g.lat,g.lon]);leafletMap.setView([g.lat,g.lon],Math.max(leafletMap.getZoom(),12));
-  setTimeout(()=>leafletMap.invalidateSize(),80);
-  return true;
+  try{
+    if(!leafletMap){
+      leafletMap=L.map(container,{zoomControl:true,preferCanvas:true,zoomSnap:.5,minZoom:10,maxZoom:19,scrollWheelZoom:true}).setView([5.32,-4.02],13);
+      leafletMap.getContainer().style.background='#e5e1d7';
+      leafletBaseLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors',crossOrigin:true,keepBuffer:3}).addTo(leafletMap);
+      leafletRoadLayer=L.layerGroup().addTo(leafletMap);leafletCommuneLayer=L.layerGroup().addTo(leafletMap);
+      leafletPlayerMarker=L.circleMarker([5.323,-4.02],{radius:8,color:'#fff',weight:3,fillColor:'#e7473f',fillOpacity:1}).addTo(leafletMap).bindTooltip('Ta position');
+      leafletHeadingLine=L.polyline([], {color:'#e7473f',weight:4,opacity:.85}).addTo(leafletMap);
+      if(typeof COMMUNE_ZONES!=='undefined')COMMUNE_ZONES.forEach(zone=>{
+        const center=worldToGeo((zone.x1+zone.x2)/2,(zone.z1+zone.z2)/2);
+        L.marker([center.lat,center.lon],{interactive:true,keyboard:false,icon:L.divIcon({className:'commune-map-label',html:'<span>'+escapeHTML(zone.name)+'</span>',iconSize:[104,26],iconAnchor:[52,13]})}).bindTooltip(zone.name).addTo(leafletCommuneLayer);
+      });
+      const follow=document.createElement('button');follow.id='mapFollow';follow.textContent='◎ Recentrer sur moi';follow.onclick=()=>{mapFollowPlayer=true;if(player){const p=worldToGeo(player.position.x,player.position.z);leafletMap.setView([p.lat,p.lon],Math.max(leafletMap.getZoom(),15));}};container.appendChild(follow);leafletMap.on('dragstart',()=>{mapFollowPlayer=false;});
+      leafletBaseLayer.on('tileerror',()=>{const status=document.getElementById('mapStatus');if(status)status.textContent='Fond cartographique indisponible : routes du jeu et repères des communes conservés.';});
+    }
+    refreshGameMapRoads();
+    const g=player?worldToGeo(player.position.x,player.position.z):{lat:5.32,lon:-4.02};
+    if(leafletPlayerMarker)leafletPlayerMarker.setLatLng([g.lat,g.lon]);
+    leafletMap.setView([g.lat,g.lon],Math.max(leafletMap.getZoom(),12),{animate:false});
+    setTimeout(()=>{if(leafletMap)leafletMap.invalidateSize({pan:false});},120);
+    return true;
+  }catch(err){console.warn('Carte Leaflet indisponible, utilisation de la carte de secours :',err);leafletMap=null;return false;}
 }
 function refreshGameMapRoads(){if(!leafletRoadLayer||typeof L==='undefined'||!osmRoadSegments.length)return;leafletRoadLayer.clearLayers();const canvasRenderer=L.canvas({padding:.4}),step=Math.max(1,Math.ceil(osmRoadSegments.length/12000));osmRoadSegments.forEach((r,i)=>{if(i%step)return;const a=worldToGeo(r.a.x,r.a.z),b=worldToGeo(r.b.x,r.b.z),major=['motorway','trunk','primary'].includes(r.type),secondary=['secondary','tertiary'].includes(r.type);L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{renderer:canvasRenderer,color:major?'#e3a34d':secondary?'#fff':'#d9d6ce',weight:major?4.5:secondary?3:1.7,opacity:.92,lineCap:'round'}).addTo(leafletRoadLayer);});}
 function openBigMap(){
@@ -3650,10 +3682,12 @@ function openBigMap(){
 function closeBigMap(){mapOpen=false;document.getElementById('bigMap').style.display='none';if(renderer&&!dialogOpen&&!panelOpen)renderer.domElement.requestPointerLock&&renderer.domElement.requestPointerLock();}
 function drawBigMap(){
   const canvas=document.getElementById('bigMapCanvas');if(!canvas)return;
-  const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;ctx.fillStyle='#e8e2d3';ctx.fillRect(0,0,W,H);
+  const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;ctx.fillStyle='#e9e6dc';ctx.fillRect(0,0,W,H);
   const scale=Math.min(W,H)/CITY_SIZE,cx=W/2,cy=H/2,toX=x=>cx+x*scale,toY=z=>cy+z*scale;
-  if(osmLoaded){ctx.lineCap='round';ctx.lineJoin='round';osmRoadSegments.forEach(r=>{ctx.strokeStyle=(r.type==='motorway'||r.type==='trunk')?'#d6a64c':(r.type==='primary'||r.type==='secondary')?'#fffdf6':'#fff';ctx.lineWidth=Math.max(.65,r.width*scale);ctx.beginPath();ctx.moveTo(toX(r.a.x),toY(r.a.z));ctx.lineTo(toX(r.b.x),toY(r.b.z));ctx.stroke();});}
-  else{ctx.fillStyle='#253d36';ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.fillText('La carte interactive nécessite une connexion aux cartes OpenStreetMap.',W/2,H/2);}
+  ctx.save();ctx.strokeStyle='rgba(64,86,75,.09)';ctx.lineWidth=1;for(let x=0;x<W;x+=55){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<H;y+=55){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}ctx.restore();
+  if(typeof COMMUNE_ZONES!=='undefined'){ctx.save();COMMUNE_ZONES.forEach(zone=>{const x=toX(zone.x1),y=toY(zone.z1),w=(zone.x2-zone.x1)*scale,h=(zone.z2-zone.z1)*scale;ctx.fillStyle='rgba(34,67,57,.08)';ctx.fillRect(x,y,w,h);ctx.setLineDash([7,5]);ctx.strokeStyle='rgba(48,89,75,.5)';ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h);ctx.setLineDash([]);ctx.fillStyle='#36564b';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText(zone.name,toX((zone.x1+zone.x2)/2),toY((zone.z1+zone.z2)/2));});ctx.restore();}
+  if(osmLoaded){ctx.lineCap='round';ctx.lineJoin='round';osmRoadSegments.forEach(r=>{ctx.strokeStyle=(r.type==='motorway'||r.type==='trunk')?'#c88d38':(r.type==='primary'||r.type==='secondary')?'#fffdf6':'#fff';ctx.lineWidth=Math.max(.65,r.width*scale);ctx.beginPath();ctx.moveTo(toX(r.a.x),toY(r.a.z));ctx.lineTo(toX(r.b.x),toY(r.b.z));ctx.stroke();});}
+  else{ctx.fillStyle='#253d36';ctx.font='bold 18px Arial';ctx.textAlign='center';ctx.fillText('Chargement des routes OpenStreetMap…',W/2,H-34);}
   if(player){const px=toX(player.position.x),py=toY(player.position.z);ctx.fillStyle='rgba(231,71,63,.22)';ctx.beginPath();ctx.arc(px,py,17,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e7473f';ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();ctx.fillStyle='#17252b';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('VOUS ÊTES ICI',px,py-22);ctx.strokeStyle='#e7473f';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py+11);ctx.lineTo(px,py+22);ctx.stroke();}
   ctx.fillStyle='#17252b';ctx.font='bold 18px Arial';ctx.textAlign='left';ctx.fillText('ABIDJAN LIFE · PLAN DU JEU',18,30);
 }
