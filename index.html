@@ -154,7 +154,7 @@
   #phoneAppContent{display:none}#phoneAppContent button{border:1px solid #f4d28b;background:#243e52;color:white;border-radius:9px;padding:9px 12px;margin:5px 3px}
   @media(max-width:760px){#phone{right:10px;bottom:10px;width:310px;height:560px;max-height:78vh}#lifeHud{top:auto;bottom:205px;left:8px;right:8px;transform:none;max-width:none;justify-content:space-between;gap:6px;padding:7px 8px}.lifeNeed{width:18%;min-width:0}.lifeNeed label{font-size:9px}#moneyLabel{font-size:10px}#lifeMood{font-size:21px}#lifeClock{top:10px;right:10px;font-size:14px}}
 
-  #accountOverlay{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321f2,#102d3bf2);backdrop-filter:blur(8px);color:#fff}#accountOverlay.open{display:flex}#accountCard{width:min(430px,100%);padding:24px;border:1px solid #e9c77b88;border-radius:20px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#accountCard h2{margin:5px 0 8px}#accountCard p{color:#c5d8e4;font-size:13px;line-height:1.45}#accountCard label{display:block;margin:12px 0 5px;font-size:12px;color:#dce8ef}#accountCard input{width:100%;padding:12px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}#accountCard button{padding:11px 14px;border-radius:9px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer;margin:8px 5px 0 0}#accountCard .primary{background:#d5a94e;color:#17232c}#accountStatus{min-height:34px;color:#ffe0a0;font-size:12px;margin-top:12px}#accountDemoCode{padding:9px;background:#ffffff12;border:1px dashed #e5c77f;border-radius:8px;color:#ffe0a0;display:none;font-weight:800;letter-spacing:3px;text-align:center}#creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}
+  #creatorOverlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:18px;background:linear-gradient(135deg,#071321ed,#102d3bed);backdrop-filter:blur(8px);color:#fff}#creatorOverlay.open{display:flex}#creatorCard{width:min(620px,100%);max-height:94vh;overflow:auto;padding:24px;border:1px solid #e9c77b88;border-radius:22px;background:linear-gradient(145deg,#203e50,#101d2a);box-shadow:0 24px 80px #000b}#creatorCard h2{margin:5px 0;font-size:27px}#creatorCard p{color:#c5d8e4;margin:5px 0 18px}.creatorHead{display:flex;justify-content:space-between;align-items:center}.creatorHead small{color:#f4d28b;letter-spacing:2px;font-weight:800}.creatorHead #creatorPreview{width:92px;height:92px;display:grid;place-items:center;border-radius:20px;background:#ffffff13;font-size:60px;border:1px solid #ffffff25}.creatorGrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.creatorGrid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#dce8ef}.creatorGrid input,.creatorGrid select{width:100%;padding:11px;border-radius:9px;border:1px solid #ffffff30;background:#102637;color:white;font:inherit}.creatorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.creatorActions button{padding:12px 18px;border-radius:10px;border:1px solid #e5c77f;background:#24465b;color:#fff;font-weight:800;cursor:pointer}.creatorActions #creatorStart{background:#d5a94e;color:#17232c}.creatorNote{font-size:11px!important;margin-top:14px!important}@media(max-width:520px){#creatorCard{padding:17px}.creatorGrid{grid-template-columns:1fr 1fr}.creatorHead #creatorPreview{width:70px;height:70px;font-size:46px}}
 
   /* V1.11 — commandes tactiles */
   #abjMobileControls{position:fixed;inset:0;z-index:30;pointer-events:none;display:none;touch-action:none;font-family:system-ui,sans-serif}
@@ -353,7 +353,6 @@ let LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 
 // ============================================================
 // MODE LOCAL TEMPORAIRE — aucune vérification SMS ou email pendant le développement.
-const ACCOUNT_INDEX_KEY='abidjan-life-accounts-v1';
 let activeGameAccount='local-device';
 
 function openAccountGate(){
@@ -361,13 +360,6 @@ function openAccountGate(){
   // Pour le moment, chaque partie utilise la sauvegarde locale existante.
   activeGameAccount='local-device';
   LIFE_SAVE_KEY='abidjan-life-life-v1';
-  openCharacterCreator();
-}
-
-function activateGameAccount(){
-  activeGameAccount='local-device';
-  LIFE_SAVE_KEY='abidjan-life-life-v1';
-  document.getElementById('accountOverlay')?.classList.remove('open');
   openCharacterCreator();
 }
 
