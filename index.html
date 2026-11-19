@@ -251,8 +251,6 @@
 </div>
 <div id="cameraOverlay"><div id="cameraPhone"><div id="cameraTop"><strong>📷 Caméra</strong><button id="cameraClose">Fermer</button></div><div id="cameraPreview"></div><label>Zoom <input id="cameraZoom" type="range" min="35" max="85" value="55"></label><div id="cameraStatus">Prêt à photographier</div><div id="cameraControls"><button id="takePhoto">● Photo</button><button id="recordVideo">◉ Vidéo</button></div></div></div><div id="elevatorMenu" role="dialog" aria-modal="true"><div id="elevatorCard"><h2>Ascenseur</h2><p>Choisis l’étage où tu souhaites aller.</p><div id="elevatorFloors"></div><button id="elevatorCancel">Annuler</button></div></div><div id="elevatorRide"><div><div id="elevatorDoors"><i></i><i></i></div><span>Ascenseur en déplacement</span><strong id="elevatorCounter">RDC</strong><span id="elevatorDestination">Destination : —</span></div></div><div id="errorBox"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
@@ -375,163 +373,24 @@ let LIFE_SAVE_KEY = 'abidjan-life-life-v1';
 // ============================================================
 
 // ============================================================
-// AUTHENTIFICATION RÉELLE PAR SMS — FIREBASE
-// ============================================================
+// MODE LOCAL TEMPORAIRE — aucune vérification SMS ou email pendant le développement.
 const ACCOUNT_INDEX_KEY='abidjan-life-accounts-v1';
-let activeGameAccount=null;
-let pendingAccountPhone=null;
-let confirmationResult=null;
-let recaptchaVerifier=null;
-
-const firebaseConfig={
-  apiKey:"AIzaSyDK5uh-9-gCAt3mX4XTJLGN0qJm3RFBFB84",
-  authDomain:"abidjan-life-50642.firebaseapp.com",
-  projectId:"abidjan-life-50642",
-  storageBucket:"abidjan-life-50642.firebasestorage.app",
-  messagingSenderId:"939247161974",
-  appId:"1:939247161974:web:bea0b884cb15f970290557"
-};
-
-let abjFirebaseAuth=null;
-try{
-  if(typeof firebase==='undefined') throw new Error('Les bibliothèques Firebase ne sont pas chargées.');
-  if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-  abjFirebaseAuth=firebase.auth();
-  abjFirebaseAuth.languageCode='fr';
-}catch(error){
-  console.error('Initialisation Firebase impossible :',error);
-}
-
-function normalizeIvorianMobile(value){
-  let raw=String(value||'').trim();
-  if(!raw||!/^[+0-9\s().-]+$/.test(raw))return null;
-  let digits=raw.replace(/\D/g,'');
-  if(digits.startsWith('225')&&digits.length===13)digits=digits.slice(3);
-  if(digits.length!==10||!/^0[157]\d{8}$/.test(digits))return null;
-  return '+225'+digits;
-}
+let activeGameAccount='local-device';
 
 function openAccountGate(){
-  const overlay=document.getElementById('accountOverlay');
-  overlay.classList.add('open');
-  document.getElementById('accountPhone').value=activeGameAccount||'';
-  document.getElementById('accountCode').value='';
-  document.getElementById('etape-numero').style.display='block';
-  document.getElementById('etape-code').style.display='none';
-  document.getElementById('accountTitle').textContent='Vérification du numéro';
-  document.getElementById('accountIntro').textContent='Entre ton numéro mobile pour recevoir un code de confirmation Firebase par SMS.';
-  document.getElementById('accountStatus').textContent='';
-  document.getElementById('btn-envoyer').disabled=false;
-  document.getElementById('btn-verifier').disabled=false;
-  document.getElementById('accountBack').style.display='none';
-  confirmationResult=null;
-  pendingAccountPhone=null;
-}
-
-async function envoyerLeSMS(){
-  const status=document.getElementById('accountStatus');
-  const phone=normalizeIvorianMobile(document.getElementById('accountPhone').value);
-  if(!phone){status.textContent='Numéro invalide. Entre un numéro ivoirien de 10 chiffres commençant par 01, 05 ou 07, ou son format +225.';return;}
-  if(!abjFirebaseAuth){status.textContent='Firebase ne s’est pas initialisé. Vérifie les scripts Firebase et la configuration.';return;}
-  const button=document.getElementById('btn-envoyer');
-  button.disabled=true;status.textContent='Préparation de la vérification sécurisée…';
-  try{
-    if(!recaptchaVerifier){
-      recaptchaVerifier=new firebase.auth.RecaptchaVerifier('recaptcha-container',{size:'invisible'});
-      await recaptchaVerifier.render();
-    }
-    confirmationResult=await abjFirebaseAuth.signInWithPhoneNumber(phone,recaptchaVerifier);
-    pendingAccountPhone=phone;
-    document.getElementById('etape-numero').style.display='none';
-    document.getElementById('etape-code').style.display='block';
-    document.getElementById('accountBack').style.display='inline-block';
-    document.getElementById('accountTitle').textContent='Code envoyé';
-    document.getElementById('accountIntro').textContent='Un SMS de vérification a été envoyé au '+phone+'.';
-    status.textContent='Code envoyé. Consulte tes SMS puis saisis les six chiffres.';
-    document.getElementById('accountCode').focus();
-  }catch(error){
-    console.error('Firebase SMS error:',{
-      code:error&&error.code,
-      message:error&&error.message,
-      customData:error&&error.customData,
-      error
-    });
-    status.textContent=messageErreurFirebaseSMS(error);
-    button.disabled=false;
-    // Un échec peut invalider le jeton reCAPTCHA, même si Firebase renvoie
-    // seulement auth/internal-error. On détruit toujours le vérificateur
-    // pour repartir sur un challenge propre à la prochaine tentative.
-    try{
-      if(recaptchaVerifier) await recaptchaVerifier.clear();
-    }catch(clearError){
-      console.warn('Impossible de réinitialiser reCAPTCHA:',clearError);
-    }finally{
-      recaptchaVerifier=null;
-      const container=document.getElementById('recaptcha-container');
-      if(container) container.innerHTML='';
-    }
-  }
-}
-
-function messageErreurFirebaseSMS(error){
-  const code=error&&error.code||'';
-  if(code==='auth/internal-error')return 'Firebase a rencontré une erreur interne pendant l’envoi. Vérifie le domaine autorisé, la clé API, le fournisseur Téléphone et les limites SMS du projet Firebase, puis réessaie.';
-  if(code==='auth/invalid-phone-number')return 'Le numéro de téléphone est invalide.';
-  if(code==='auth/too-many-requests')return 'Trop de tentatives. Réessaie plus tard.';
-  if(code==='auth/quota-exceeded')return 'Le quota SMS Firebase est dépassé pour le moment.';
-  if(code==='auth/captcha-check-failed'||code==='auth/missing-app-credential')return 'La vérification reCAPTCHA a échoué. Vérifie le domaine autorisé dans Firebase Authentication.';
-  if(code==='auth/operation-not-allowed')return 'La connexion par téléphone n’est pas activée dans Firebase Console.';
-  if(code==='auth/billing-not-enabled')return 'Le projet Firebase doit être configuré pour l’envoi de SMS.';
-  return 'Impossible d’envoyer le SMS : '+(error&&error.message?error.message:'erreur inconnue');
-}
-
-async function verifierLeCode(){
-  const status=document.getElementById('accountStatus');
-  const code=document.getElementById('accountCode').value.trim();
-  if(!/^\d{6}$/.test(code)){status.textContent='Le code doit contenir exactement 6 chiffres.';return;}
-  if(!confirmationResult){status.textContent='Aucune demande de vérification active. Demande un nouveau code.';return;}
-  const button=document.getElementById('btn-verifier');
-  button.disabled=true;status.textContent='Vérification du code…';
-  try{
-    const result=await confirmationResult.confirm(code);
-    const verifiedPhone=result.user&&result.user.phoneNumber||pendingAccountPhone;
-    activateGameAccount(verifiedPhone);
-  }catch(error){
-    console.error('Firebase code verification error:',error);
-    status.textContent=error&&error.code==='auth/code-expired'?'Ce code a expiré. Demande-en un nouveau.':'Code incorrect ou expiré. Vérifie les six chiffres.';
-    button.disabled=false;
-  }
-}
-
-function activateGameAccount(phone){
-  const canonical=normalizeIvorianMobile(phone);
-  if(!canonical){document.getElementById('accountStatus').textContent='Numéro mobile invalide après vérification.';return;}
-  const saveKey='abidjan-life-life-v1:'+canonical;
-  if(!localStorage.getItem(saveKey)){
-    const legacySave=localStorage.getItem('abidjan-life-life-v1');
-    if(legacySave)localStorage.setItem(saveKey,legacySave);
-  }
-  activeGameAccount=canonical;
-  LIFE_SAVE_KEY=saveKey;
-  document.getElementById('accountOverlay').classList.remove('open');
+  // Les comptes en ligne seront réactivés après la finalisation du jeu.
+  // Pour le moment, chaque partie utilise la sauvegarde locale existante.
+  activeGameAccount='local-device';
+  LIFE_SAVE_KEY='abidjan-life-life-v1';
   openCharacterCreator();
 }
 
-function backAccountLogin(){
-  confirmationResult=null;
-  pendingAccountPhone=null;
-  document.getElementById('etape-numero').style.display='block';
-  document.getElementById('etape-code').style.display='none';
-  document.getElementById('accountBack').style.display='none';
-  document.getElementById('accountStatus').textContent='';
-  document.getElementById('btn-envoyer').disabled=false;
-  document.getElementById('accountTitle').textContent='Vérification du numéro';
-  document.getElementById('accountIntro').textContent='Entre ton numéro mobile pour recevoir un code de confirmation Firebase par SMS.';
+function activateGameAccount(){
+  activeGameAccount='local-device';
+  LIFE_SAVE_KEY='abidjan-life-life-v1';
+  document.getElementById('accountOverlay')?.classList.remove('open');
+  openCharacterCreator();
 }
-
-document.getElementById('btn-envoyer').addEventListener('click',envoyerLeSMS);
-document.getElementById('btn-verifier').addEventListener('click',verifierLeCode);
-document.getElementById('accountBack').addEventListener('click',backAccountLogin);
 
 function openCharacterCreator(){
   loadLifeProgress();
@@ -3710,7 +3569,7 @@ function renderJumiaApp(){
 function renderShopApp(){
  const content=document.getElementById('phoneAppContent');if(!content)return;
  const cards=ABJ_SHOP_ITEMS.map(it=>'<div style="padding:10px;margin:8px 0;border:1px solid #ffffff28;border-radius:10px;background:#ffffff0d"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(it.name)+'</b><b style="color:#ffe0a0;white-space:nowrap">'+it.price.toLocaleString('fr-FR')+' FCFA</b></div><div style="font-size:11px;color:#c6d8e5;margin:5px 0">'+escapeHTML(it.category)+' · '+escapeHTML(it.description)+'</div><button data-buy="'+it.id+'">Acheter</button></div>').join('');
- content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛍️ Boutique ABJ</h3><p>Portefeuille : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><p style="font-size:11px;color:#c6d8e5">Catalogue de simulation. Les achats sont débités du portefeuille du jeu et ajoutés à ton sac.</p><button id="openInventory">🎒 Voir mon sac ('+Object.values(lifeState.inventory||{}).reduce((a,n)=>a+n,0)+')</button>'+cards+'<p id="shopStatus" style="font-size:12px;color:#ffe0a0"></p>';
+ content.innerHTML='<button id="phoneBack">← Applications</button><h3>🛍️ Boutique ABJ</h3><p>Portefeuille : <b>'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</b></p><p style="font-size:11px;color:#c6d8e5">Catalogue de simulation. Les achats sont débités uniquement du portefeuille virtuel gagné dans ta partie et ajoutés à ton sac. Aucun paiement réel n’est proposé.</p><div style="padding:10px;margin:8px 0;border:1px solid #d9b66c66;border-radius:10px;background:#ffffff0a"><b>Abonnements</b><p style="font-size:12px;color:#ffe0a0;margin:5px 0 0">Abonnements indisponibles pour le moment.</p></div><button id="openInventory">🎒 Voir mon sac ('+Object.values(lifeState.inventory||{}).reduce((a,n)=>a+n,0)+')</button>'+cards+'<p id="shopStatus" style="font-size:12px;color:#ffe0a0"></p>';
  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
  document.getElementById('openInventory').onclick=()=>renderInventoryApp();
  content.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{const it=ABJ_SHOP_ITEMS.find(x=>x.id===btn.dataset.buy);if(!it)return;const status=document.getElementById('shopStatus');if(lifeState.money<it.price){status.textContent='Solde insuffisant pour cet achat.';return;}lifeState.money-=it.price;lifeState.inventory=lifeState.inventory||{};lifeState.inventory[it.id]=(lifeState.inventory[it.id]||0)+1;lifeState.bankTransactions=lifeState.bankTransactions||[];lifeState.bankTransactions.push({type:'debit',label:'Achat : '+it.name,amount:it.price,date:String(lifeState.hour).padStart(2,'0')+':'+String(Math.floor(lifeState.minute)).padStart(2,'0')});lifeState.bankTransactions=lifeState.bankTransactions.slice(-30);saveLifeProgress(false);renderShopApp();const msg=document.getElementById('shopStatus');if(msg)msg.textContent=it.name+' ajouté à ton sac.';});
@@ -3824,7 +3683,7 @@ function renderBankApp(){
     const positive=t.type==='credit';
     return '<div style="display:flex;justify-content:space-between;gap:8px;padding:9px 4px;border-bottom:1px solid #ffffff20"><div><b>'+escapeHTML(t.label)+'</b><div style="font-size:10px;color:#b9cad6">'+escapeHTML(t.date||'Transaction récente')+'</div></div><b style="white-space:nowrap;color:'+(positive?'#8ce0a4':'#ffb0a0')+'">'+(positive?'+':'−')+Math.abs(t.amount).toLocaleString('fr-FR')+' F</b></div>';
   }).join('');
-  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏦 Banque ABJ · Wave</h3><div style="padding:14px;border-radius:13px;background:linear-gradient(120deg,#087b83,#174b70);margin:10px 0"><small>PORTEFEUILLE SIMULÉ</small><div style="font-size:25px;font-weight:800;margin:5px 0">'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</div><small>Argent disponible dans ta partie</small></div><p style="font-size:11px;color:#c6d8e5">Environnement fictif : aucun compte bancaire réel et aucun transfert d’argent réel.</p><h4>Envoyer de l’argent</h4><label style="display:block;font-size:12px">Destinataire<input id="bankRecipient" maxlength="32" placeholder="Nom du contact" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><label style="display:block;font-size:12px">Montant (FCFA)<input id="bankAmount" type="number" min="1" max="10000000" step="1" placeholder="Ex. 2500" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><button id="bankSend">Confirmer le transfert</button><p id="bankStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p><h4>Historique récent</h4><div>'+(rows||'<p style="font-size:12px;color:#c6d8e5">Aucune transaction pour le moment.</p>')+'</div>';
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>🏦 Banque ABJ</h3><div style="padding:14px;border-radius:13px;background:linear-gradient(120deg,#087b83,#174b70);margin:10px 0"><small>PORTEFEUILLE SIMULÉ</small><div style="font-size:25px;font-weight:800;margin:5px 0">'+Math.floor(lifeState.money).toLocaleString('fr-FR')+' FCFA</div><small>Argent disponible dans ta partie</small></div><p style="font-size:11px;color:#c6d8e5">Environnement fictif : aucun compte bancaire réel et aucun transfert d’argent réel.</p><h4>Envoyer de l’argent</h4><label style="display:block;font-size:12px">Destinataire<input id="bankRecipient" maxlength="32" placeholder="Nom du contact" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><label style="display:block;font-size:12px">Montant (FCFA)<input id="bankAmount" type="number" min="1" max="10000000" step="1" placeholder="Ex. 2500" style="display:block;width:100%;padding:10px;margin:5px 0 9px;border-radius:8px"></label><button id="bankSend">Confirmer le transfert</button><p id="bankStatus" style="font-size:12px;color:#ffe0a0;min-height:18px"></p><h4>Historique récent</h4><div>'+(rows||'<p style="font-size:12px;color:#c6d8e5">Aucune transaction pour le moment.</p>')+'</div>';
   document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
   document.getElementById('bankSend').onclick=()=>{
     const recipient=document.getElementById('bankRecipient').value.trim();
@@ -3870,11 +3729,17 @@ function renderPhoneGamesApp(){
  let touchX=0;const shelf=document.getElementById('gameShelf');shelf.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;},{passive:true});shelf.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-touchX;if(Math.abs(dx)>35){index=(index+(dx<0?1:games.length-1))%games.length;draw();}},{passive:true});draw();
 }
 function renderAccountSettingsApp(){
- const content=document.getElementById('phoneAppContent');if(!content)return;
- content.innerHTML='<button id="phoneBack">← Applications</button><h3>⚙️ Réglages du compte</h3><div style="padding:12px;background:#ffffff12;border-radius:12px"><div style="font-size:11px;color:#b9d6e7">Compte connecté</div><b>'+escapeHTML(activeGameAccount||'Aucun compte')+'</b><p style="font-size:11px;color:#c6d8e5">La sauvegarde est associée à ce numéro sur cet appareil.</p></div><button id="accountSignOut">Se déconnecter</button><button id="accountDelete" style="background:#843d3d">Supprimer le compte et toutes les sauvegardes</button><p id="accountSettingStatus" style="font-size:11px;color:#ffe0a0"></p>';
- document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
- document.getElementById('accountSignOut').onclick=()=>{closePhone();activeGameAccount=null;openAccountGate();};
- document.getElementById('accountDelete').onclick=()=>{const status=document.getElementById('accountSettingStatus');if(!activeGameAccount){status.textContent='Aucun compte actif.';return;}if(!confirm('Supprimer ce compte et toutes ses sauvegardes locales ? Cette action est irréversible.'))return;const accounts=readGameAccounts();delete accounts[activeGameAccount];localStorage.setItem(ACCOUNT_INDEX_KEY,JSON.stringify(accounts));localStorage.removeItem(LIFE_SAVE_KEY);localStorage.removeItem('abj-life-gallery-v1');activeGameAccount=null;closePhone();gameStarted=false;worldReady=false;document.getElementById('creatorOverlay').classList.remove('open');document.getElementById('startScreen').style.display='flex';status.textContent='Compte supprimé.';showMessage('Compte et sauvegardes supprimés.');};
+  const content=document.getElementById('phoneAppContent');if(!content)return;
+  content.innerHTML='<button id="phoneBack">← Applications</button><h3>⚙️ Réglages du profil</h3><div style="padding:12px;background:#ffffff12;border-radius:12px"><div style="font-size:11px;color:#b9d6e7">Mode actuel</div><b>Profil local · cet appareil</b><p style="font-size:11px;color:#c6d8e5">Aucune vérification par SMS ou email n’est demandée pendant le développement. Ta sauvegarde reste stockée sur cet appareil.</p></div><button id="accountSignOut">Modifier mon personnage</button><button id="accountDelete" style="background:#843d3d">Supprimer ma sauvegarde locale</button><p id="accountSettingStatus" style="font-size:11px;color:#ffe0a0"></p>';
+  document.getElementById('phoneBack').onclick=()=>{content.style.display='none';document.getElementById('phoneApps').style.display='grid';};
+  document.getElementById('accountSignOut').onclick=()=>{closePhone();openCharacterCreator();};
+  document.getElementById('accountDelete').onclick=()=>{
+    const status=document.getElementById('accountSettingStatus');
+    if(!confirm('Supprimer uniquement la sauvegarde locale de cette partie sur cet appareil ? Cette action est irréversible.'))return;
+    localStorage.removeItem(LIFE_SAVE_KEY);
+    localStorage.removeItem('abj-life-gallery-v1');
+    status.textContent='Sauvegarde locale supprimée. Les autres données du navigateur ne sont pas touchées.';
+  };
 }
 
 function renderCheatApp(){
